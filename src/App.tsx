@@ -92,10 +92,19 @@ function loadHistory(): HistoryItem[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    /* drop malformed entries so corrupted storage can't crash the render */
+    // Strict schema validation for history items from localStorage
     return parsed.filter(
       (x): x is HistoryItem =>
-        !!x && typeof x === "object" && typeof x.payload === "string" && !!x.style && !!x.forms,
+        !!x &&
+        typeof x === "object" &&
+        typeof x.id === "string" &&
+        typeof x.ts === "number" &&
+        typeof x.type === "string" &&
+        typeof x.payload === "string" &&
+        !!x.style &&
+        typeof x.style === "object" &&
+        !!x.forms &&
+        typeof x.forms === "object",
     );
   } catch {
     return [];

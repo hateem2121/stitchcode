@@ -2,57 +2,67 @@
 # Dependencies
 node_modules/
 
-# Environment
+# Build outputs
+dist/
+build/
+*.js.map
+*.ts.map
+
+# Environment variables
 .env
 .env.local
-.env.*
+*.env.*
 
 # Logs
 *.log
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Coverage
 coverage/
 htmlcov/
 .coverage
 
-# Build outputs
-dist/
-build/
-target/
-
-# Python
+# Python (if present)
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-env/
-venv/
+*.so
+*.egg-info/
+.eggs/
 .venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.cache/
-.pytest_cache/
+venv/
 .mypy_cache/
+.pytest_cache/
 
-# Node.js
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-node_modules/
-jspm_packages/
+# Java (if present)
+*.class
+*.jar
+*.war
+*.ear
+target/
+.gradle/
+build/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
+# C/C++ (if present)
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
 
 # Compressed files
 *.zip
