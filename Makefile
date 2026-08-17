@@ -39,8 +39,8 @@ release:
 	git push origin "v$(VERSION)"
 	@echo ""
 	@echo "✓ Tag pushed. Watch the robots:"
-	@echo "  https://github.com/run-stitchcode/stitchcode/actions"
+	@echo "  https://github.com/hateem2121/stitchcode/actions"
 
 docker-run:
-	docker run -d -p 8080:80 --name stitchcode ghcr.io/run-stitchcode/stitchcode:$(VERSION)
+	docker run -d -p 8080:80 --name stitchcode ghcr.io/hateem2121/stitchcode:$(VERSION)
 	@echo "✓ Studio running → http://localhost:8080"

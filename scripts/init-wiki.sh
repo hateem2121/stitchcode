@@ -9,7 +9,7 @@
 # ------------------------------------------------------------------
 set -euo pipefail
 
-REPO="run-stitchcode/stitchcode"
+REPO="hateem2121/stitchcode"
 WIKI_URL="https://github.com/${REPO}.wiki.git"
 TMP="$(mktemp -d)"
 

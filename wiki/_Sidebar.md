@@ -8,6 +8,6 @@
 
 **Repository**
 
-- [📖 README](https://github.com/run-stitchcode/stitchcode#readme)
-- [🤝 Contribute](https://github.com/run-stitchcode/stitchcode/blob/main/CONTRIBUTING.md)
-- [📜 Licence (MIT)](https://github.com/run-stitchcode/stitchcode/blob/main/LICENSE)
+- [📖 README](https://github.com/hateem2121/stitchcode#readme)
+- [🤝 Contribute](https://github.com/hateem2121/stitchcode/blob/main/CONTRIBUTING.md)
+- [📜 Licence (MIT)](https://github.com/hateem2121/stitchcode/blob/main/LICENSE)

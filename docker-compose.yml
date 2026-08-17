@@ -5,7 +5,7 @@
 #
 # Or skip building entirely with the published image:
 #
-#   docker run -p 8080:80 ghcr.io/run-stitchcode/stitchcode
+#   docker run -p 8080:80 ghcr.io/hateem2121/stitchcode
 # ------------------------------------------------------------------
 services:
   stitchcode:

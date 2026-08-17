@@ -83,7 +83,12 @@ function vcardEscape(v: string): string {
 export function normalizeUrl(raw: string): string {
   const v = raw.trim();
   if (!v) return "";
-  return /^[a-z][a-z0-9+.-]*:\/\//i.test(v) ? v : `https://${v}`;
+  // Only allow http/https schemes to prevent javascript: and other dangerous protocols
+  if (/^https?:\/\//i.test(v)) return v;
+  // Reject any explicit non-http(s) scheme
+  if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return "";
+  // Default to https for bare domains
+  return `https://${v}`;
 }
 
 /* ------------------------- builders ------------------------------- */

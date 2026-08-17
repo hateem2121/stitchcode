@@ -43,4 +43,4 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   destroy uncorrectable data.
 - Zero network calls at runtime — fonts and the decoder are bundled locally.
 
-[1.0.0]: https://github.com/run-stitchcode/stitchcode/releases/tag/v1.0.0
+[1.0.0]: https://github.com/hateem2121/stitchcode/releases/tag/v1.0.0
