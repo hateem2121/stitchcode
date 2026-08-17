@@ -85,10 +85,18 @@ export function normalizeUrl(raw: string): string {
   if (!v) return "";
   // Only allow http/https schemes to prevent javascript: and other dangerous protocols
   if (/^https?:\/\//i.test(v)) return v;
-  // Reject any explicit non-http(s) scheme
+  // Reject any explicit non-http(s) scheme including data:, javascript:, etc.
   if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return "";
   // Default to https for bare domains
   return `https://${v}`;
+}
+
+/**
+ * Sanitize text payload to prevent potential XSS when rendered in SVG.
+ * While the SVG renderer escapes HTML entities, this provides defense-in-depth.
+ */
+export function sanitizeText(text: string): string {
+  return text.replace(/[\u0000-\u001F\u007F]/g, "");
 }
 
 /* ------------------------- builders ------------------------------- */
@@ -98,7 +106,8 @@ export function buildPayload(type: QRType, f: FormState): string {
     case "url":
       return normalizeUrl(f.url);
     case "text":
-      return f.text;
+      // Sanitize control characters from text payload
+      return sanitizeText(f.text);
     case "wifi": {
       const w = f.wifi;
       const pass =
@@ -126,13 +135,16 @@ export function buildPayload(type: QRType, f: FormState): string {
     }
     case "email": {
       const e = f.email;
+      // Sanitize recipient to prevent header injection
+      const safeTo = e.to.trim().replace(/[\r\n]/g, "");
       const qs: string[] = [];
-      if (e.subject) qs.push(`subject=${encodeURIComponent(e.subject)}`);
-      if (e.body) qs.push(`body=${encodeURIComponent(e.body)}`);
-      return `mailto:${e.to.trim()}${qs.length ? `?${qs.join("&")}` : ""}`;
+      if (e.subject) qs.push(`subject=${encodeURIComponent(e.subject.replace(/[\r\n]/g, ""))}`);
+      if (e.body) qs.push(`body=${encodeURIComponent(e.body.replace(/[\r\n]/g, ""))}`);
+      return `mailto:${safeTo}${qs.length ? `?${qs.join("&")}` : ""}`;
     }
     case "sms":
-      return `SMSTO:${f.sms.number.replace(/[^\d+]/g, "")}:${f.sms.message}`;
+      // URL-encode message content for proper parsing across all devices
+      return `SMSTO:${f.sms.number.replace(/[^\d+]/g, "")}:${encodeURIComponent(f.sms.message)}`;
     case "phone":
       return `tel:${f.phone.replace(/[^\d+]/g, "")}`;
   }

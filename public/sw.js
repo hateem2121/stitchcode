@@ -10,7 +10,7 @@
  * MAINTAINERS: bump VERSION whenever the app changes shape, so old
  * visitors' caches refresh cleanly on their next load.
  * ------------------------------------------------------------------ */
-const VERSION = "v1";
+const VERSION = "v1755442980000"; // Auto-generated build version
 const CACHE = `stitchcode-${VERSION}`;
 
 self.addEventListener("install", () => {
