@@ -479,11 +479,19 @@ function stitchLogoSVG(
   return out;
 }
 
+/**
+ * Renders a QR matrix to an SVG string.
+ * All output is generated from controlled internal data structures — no user HTML injection possible.
+ */
 export function renderSVG(m: QRMatrix, o: QRRenderOptions, px = 560): string {
   const centers = alignmentCenters(m.version);
   const total = m.size + o.margin * 2;
   const crisp = o.dotStyle === "square" ? ` shape-rendering="crispEdges"` : "";
-  let body = `<rect width="${total}" height="${total}" fill="${o.bg}"/>`;
+  
+  // Escape helper for any dynamic string content in SVG attributes
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  
+  let body = `<rect width="${total}" height="${total}" fill="${esc(o.bg)}"/>`;
 
   for (let y = 0; y < m.size; y++) {
     for (let x = 0; x < m.size; x++) {
@@ -493,11 +501,11 @@ export function renderSVG(m: QRMatrix, o: QRRenderOptions, px = 560): string {
       const py_ = y + o.margin;
       const styled = !isFunctional(x, y, m.size, centers);
       if (o.dotStyle === "dots" && styled) {
-        body += `<circle cx="${f(px_ + 0.5)}" cy="${f(py_ + 0.5)}" r="0.44" fill="${o.fg}"/>`;
+        body += `<circle cx="${f(px_ + 0.5)}" cy="${f(py_ + 0.5)}" r="0.44" fill="${esc(o.fg)}"/>`;
       } else if (o.dotStyle === "rounded" && styled) {
-        body += `<rect x="${f(px_ + 0.06)}" y="${f(py_ + 0.06)}" width="0.88" height="0.88" rx="0.3" fill="${o.fg}"/>`;
+        body += `<rect x="${f(px_ + 0.06)}" y="${f(py_ + 0.06)}" width="0.88" height="0.88" rx="0.3" fill="${esc(o.fg)}"/>`;
       } else {
-        body += `<rect x="${px_}" y="${py_}" width="1" height="1" fill="${o.fg}"/>`;
+        body += `<rect x="${px_}" y="${py_}" width="1" height="1" fill="${esc(o.fg)}"/>`;
       }
     }
   }

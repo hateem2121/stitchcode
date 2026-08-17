@@ -1,14 +1,14 @@
 # RUN STITCHCODE
 
-[![RUN STITCHCODE — QR code studio banner](https://raw.githubusercontent.com/run-stitchcode/stitchcode/main/docs/assets/banner.svg)](https://run-stitchcode.github.io/stitchcode/)
+[![RUN STITCHCODE — QR code studio banner](https://raw.githubusercontent.com/hateem2121/stitchcode/main/docs/assets/banner.svg)](https://hateem2121.github.io/stitchcode/)
 
 A friendly QR code studio that stitches your picture *into* the code — and
 checks that it really scans. No servers, no accounts, and nothing you type
 ever leaves the device.
 
-[![CI](https://img.shields.io/badge/CI-passing-19c37d?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=1c1c1a)](https://github.com/run-stitchcode/stitchcode/actions)
-[![Pages](https://img.shields.io/badge/Pages-ready-16336f?style=for-the-badge&logo=githubpages&logoColor=white&labelColor=1c1c1a)](https://run-stitchcode.github.io/stitchcode/)
-[![Docker](https://img.shields.io/badge/Docker-image-073042?style=for-the-badge&logo=docker&logoColor=white&labelColor=1c1c1a)](https://github.com/run-stitchcode/stitchcode/pkgs/container/stitchcode)
+[![CI](https://img.shields.io/badge/CI-passing-19c37d?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=1c1c1a)](https://github.com/hateem2121/stitchcode/actions)
+[![Pages](https://img.shields.io/badge/Pages-ready-16336f?style=for-the-badge&logo=githubpages&logoColor=white&labelColor=1c1c1a)](https://hateem2121.github.io/stitchcode/)
+[![Docker](https://img.shields.io/badge/Docker-image-073042?style=for-the-badge&logo=docker&logoColor=white&labelColor=1c1c1a)](https://github.com/hateem2121/stitchcode/pkgs/container/stitchcode)
 [![Licence](https://img.shields.io/badge/Licence-MIT-fe492a?style=for-the-badge&labelColor=1c1c1a)](./LICENSE)
 [![Runs offline](https://img.shields.io/badge/Runs-100%25_offline-132a22?style=for-the-badge&logo=wifi&logoColor=white&labelColor=1c1c1a)](#why-it-is-safe)
 
@@ -47,7 +47,7 @@ Pick the path that fits — no coding needed for the first two:
 | 🌐 | **Use it online** | Everyone | Open the GitHub Pages link (shown on the right of the repo) |
 | 📲 | **Install it** | Everyone | Open the Pages link once → use your browser's **"Install app"** — it then works with no internet at all |
 | 📦 | **Run the app file** | Helpers | Download the latest **Release** zip, unzip it, then run `npx serve .` (or `python3 -m http.server`) in that folder and open the link it prints |
-| 🐳 | **Run with Docker** | Helpers | `docker run -p 8080:80 ghcr.io/run-stitchcode/stitchcode` → open `localhost:8080` |
+| 🐳 | **Run with Docker** | Helpers | `docker run -p 8080:80 ghcr.io/hateem2121/stitchcode` → open `localhost:8080` |
 | 🛠️ | **Build from source** | Curious makers | Follow the three commands below |
 
 > 💡 **Why can't I just double-click `index.html`?** Modern web apps are built
@@ -56,7 +56,7 @@ Pick the path that fits — no coding needed for the first two:
 
 ```bash
 # 1. get the code        (or download the green "Code" zip instead)
-git clone https://github.com/run-stitchcode/stitchcode.git
+git clone https://github.com/hateem2121/stitchcode.git
 cd stitchcode
 
 # 2. install the parts   (Node.js 22+ needed — https://nodejs.org)
@@ -69,7 +69,7 @@ npm run dev              # then open the link it prints (usually :5173)
 > **On Windows without `make`?** Use the npm scripts directly — `npm run dev`,
 > and `npm run build -- --base=./` for the portable folder.
 
-> **Stuck?** The [Troubleshooting wiki page](https://github.com/run-stitchcode/stitchcode/wiki/Troubleshooting) fixes
+> **Stuck?** The [Troubleshooting wiki page](https://github.com/hateem2121/stitchcode/wiki/Troubleshooting) fixes
 > the five most common bumps, in pictures.
 
 ---
@@ -232,13 +232,13 @@ stitchcode/
 
 ```mermaid
 flowchart LR
-  subgraph your device["Your device — everything happens here"]
+  subgraph your_device["Your device — everything happens here"]
     A[typing] --> B[encoding] --> C[scanning back] --> D[saving]
   end
   subgraph internet["The internet"]
     Z(("nothing<br/>sent ✗"))
   end
-  your device -.->|"0 requests"| Z
+  A -.->|"0 requests"| Z
 
   style Z fill:#fff0f0,stroke:#c22e12,stroke-width:2px
 ```
@@ -259,7 +259,7 @@ flowchart LR
 | Understand every part | [docs/HOW_IT_WORKS.md](./docs/HOW_IT_WORKS.md) |
 | Host it yourself | [docs/SELF_HOSTING.md](./docs/SELF_HOSTING.md) |
 | Ship it to production | [docs/PRODUCTION_CHECKLIST.md](./docs/PRODUCTION_CHECKLIST.md) |
-| Read the wiki | [the wiki](https://github.com/run-stitchcode/stitchcode/wiki) |
+| Read the wiki | [the wiki](https://github.com/hateem2121/stitchcode/wiki) |
 | See what changed when | [CHANGELOG.md](./CHANGELOG.md) |
 
 The robots already know what to do: pushing to `main` runs the checks,

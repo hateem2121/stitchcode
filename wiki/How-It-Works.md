@@ -1,7 +1,7 @@
 # 🔍 How It Works (the picture version)
 
 The full, illustrated guide lives in the repository at
-[`docs/HOW_IT_WORKS.md`](https://github.com/run-stitchcode/stitchcode/blob/main/docs/HOW_IT_WORKS.md).
+[`docs/HOW_IT_WORKS.md`](https://github.com/hateem2121/stitchcode/blob/main/docs/HOW_IT_WORKS.md).
 Here is the postcard version.
 
 ---
@@ -55,7 +55,7 @@ skin, but the bones are never touched. That is why stitched codes still scan.
 
 | Topic | Where |
 |---|---|
-| Every box in the pipeline | [`docs/HOW_IT_WORKS.md`](https://github.com/run-stitchcode/stitchcode/blob/main/docs/HOW_IT_WORKS.md) |
-| The six scanning rules | [`docs/SCAN_SAFETY.md`](https://github.com/run-stitchcode/stitchcode/blob/main/docs/SCAN_SAFETY.md) |
-| Colours & themes | [`docs/THEMING.md`](https://github.com/run-stitchcode/stitchcode/blob/main/docs/THEMING.md) |
-| Hosting it yourself | [`docs/SELF_HOSTING.md`](https://github.com/run-stitchcode/stitchcode/blob/main/docs/SELF_HOSTING.md) |
+| Every box in the pipeline | [`docs/HOW_IT_WORKS.md`](https://github.com/hateem2121/stitchcode/blob/main/docs/HOW_IT_WORKS.md) |
+| The six scanning rules | [`docs/SCAN_SAFETY.md`](https://github.com/hateem2121/stitchcode/blob/main/docs/SCAN_SAFETY.md) |
+| Colours & themes | [`docs/THEMING.md`](https://github.com/hateem2121/stitchcode/blob/main/docs/THEMING.md) |
+| Hosting it yourself | [`docs/SELF_HOSTING.md`](https://github.com/hateem2121/stitchcode/blob/main/docs/SELF_HOSTING.md) |
