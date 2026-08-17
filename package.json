@@ -22,7 +22,7 @@
     "date-fns": "^4.4.0",
     "framer-motion": "^11.16.1",
     "jsqr": "^1.4.0",
-    "lucide-react": "^0.294.0",
+    "lucide-react": "^1.31.0",
     "motion": "^13.1.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.8",
