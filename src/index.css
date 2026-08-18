@@ -163,6 +163,21 @@ body {
   display: block;
   width: 100%;
   height: auto;
+  /* Ensure aspect ratio is preserved across all viewports */
+  max-width: 100%;
+}
+
+/* Responsive QR container - maintains proper sizing on all devices */
+.qr-live {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .qr-live {
+    max-width: 280px;
+  }
 }
 
 /* Print proof sheet — only the paper prints, the studio stays home */
@@ -283,6 +298,15 @@ body {
 .animate-floaty {
   animation: floaty 6.5s ease-in-out infinite;
 }
+
+/* Responsive: disable floaty on mobile/tablet for better performance */
+@media (max-width: 1023px) {
+  .animate-floaty {
+    animation: none;
+    transform: none !important;
+  }
+}
+
 @keyframes popin {
   0% { transform: scale(0.82); opacity: 0; }
   60% { transform: scale(1.04); opacity: 1; }

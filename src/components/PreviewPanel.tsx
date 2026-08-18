@@ -273,7 +273,7 @@ export function PreviewPanel({
   };
 
   return (
-    <div className="sticky top-[92px] space-y-4">
+    <div className="sticky top-0 z-40 sm:top-[76px] lg:top-[92px] space-y-4">
       <IndustrialCard id="preview" stripe={verified ? "var(--t-ok)" : "var(--t-accent)"}>
         {/* header strip */}
         <div className="flex items-center justify-between gap-2 border-b-[1.5px] border-line bg-surface2/60 px-5 py-3">

@@ -12,7 +12,7 @@ import {
 } from "./lib/themes";
 import type { QRType, FormState } from "./lib/payloads";
 import { DEFAULT_FORMS, buildPayload, summarize } from "./lib/payloads";
-import { createMatrix, renderSVG, logoToGrid, logoRegionModules, type QRMatrix } from "./lib/qr";
+import { createMatrix, renderSVG, logoToGrid, logoRegionModules, type QRMatrix, luminance } from "./lib/qr";
 import { SAMPLE_LOGO_URL } from "./lib/sample";
 import { ToastProvider, Reveal, Pill, Tele, Tip, Decode, useToast } from "./components/ui";
 import { ContentForms } from "./components/ContentForms";
@@ -470,8 +470,8 @@ function Opener() {
           </div>
         </Reveal>
 
-        {/* floating specimen */}
-        <Reveal className="relative hidden justify-center lg:flex">
+        {/* floating specimen - hidden on lg to avoid layout issues */}
+        <Reveal className="relative hidden xl:flex">
           <motion.div
             initial={{ opacity: 0, y: 30, rotate: -8 }}
             animate={{ opacity: 1, y: 0, rotate: -4 }}
@@ -642,15 +642,45 @@ function Workbench() {
   const filenameBase = `stitchcode-${type}-${summarize(type, forms).toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24) || "code"}`;
 
   /* one-tap rescue: push the picture settings toward the research-backed
-     safe zone (stronger fade + brighter exposure; smaller inlay footprint) */
+     safe zone (stronger fade + brighter exposure; smaller inlay footprint)
+     Also fixes common scan failures by adjusting contrast, EC level, and margins */
   const autoFix = () => {
-    setStyle((s) => ({
-      ...s,
-      logoFade: Math.max(s.logoFade, 0.4),
-      logoBrightness: Math.max(s.logoBrightness, 1.5),
-      logoContrast: Math.max(s.logoContrast, 1.3),
-      logoScale: s.logoMode === "inlay" && s.logoScale > 0.4 ? 0.4 : s.logoScale,
-    }));
+    setStyle((s) => {
+      const fixes: Partial<StyleState> = {
+        logoFade: Math.max(s.logoFade, 0.4),
+        logoBrightness: Math.max(s.logoBrightness, 1.5),
+        logoContrast: Math.max(s.logoContrast, 1.3),
+        logoScale: s.logoMode === "inlay" && s.logoScale > 0.4 ? 0.4 : s.logoScale,
+      };
+      
+      // If using inlay mode without H error correction, switch to H
+      if (s.logoMode === "inlay" && s.ec !== "H") {
+        fixes.ec = "H";
+      }
+      
+      // Ensure minimum margin for scan reliability
+      if (s.margin < 4) {
+        fixes.margin = 4;
+      }
+      
+      // Improve foreground/background contrast if it's poor
+      const fgLum = luminance(s.fg);
+      const bgLum = luminance(s.bg);
+      const contrast = (Math.max(fgLum, bgLum) + 0.05) / (Math.min(fgLum, bgLum) + 0.05);
+      if (contrast < 4.5) {
+        // Default to dark on light if contrast is poor
+        fixes.fg = "#1c1c1a";
+        fixes.bg = "#ffffff";
+      }
+      
+      // Ensure polarity is correct (dark on light)
+      if (fgLum >= bgLum) {
+        fixes.fg = "#1c1c1a";
+        fixes.bg = "#ffffff";
+      }
+      
+      return { ...s, ...fixes };
+    });
     toast("info", "We nudged the picture settings — checking again…");
   };
 
