@@ -23,7 +23,7 @@ jobs:
         node: [22, 24] # 22 = maintenance LTS · 24 = active LTS (2026)
     steps:
       - name: Check out the code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v5
