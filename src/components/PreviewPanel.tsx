@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import DOMPurify from "dompurify";
 import { decodeQR } from "../lib/decode";
 import { Download, Image as ImageIcon, Copy, ScanLine, Layers, Gauge, Printer, Sparkles, Share2 } from "lucide-react";
 import type { QRMatrix } from "../lib/qr";
@@ -111,10 +112,16 @@ export function PreviewPanel({
   }, [matrix, style, logoGrid, logoN, payload]);
 
   /* transparent-bg render so the code sits ON the substrate */
-  const printed = useMemo(
+  const printedSVG = useMemo(
     () => (matrix ? renderSVG(matrix, renderOpts("transparent"), 640) : ""),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [matrix, style, logoGrid, logoN],
+  );
+  
+  // Sanitize SVG with DOMPurify for defense-in-depth
+  const printed = useMemo(() => 
+    printedSVG ? DOMPurify.sanitize(printedSVG, { USE_PROFILES: { svg: true, svgFilters: true } }) : "",
+    [printedSVG]
   );
 
   const subContrast = useMemo(

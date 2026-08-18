@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, MotionConfig, animate } from "motion/react";
 import { QrCode, WifiOff, History, Trash2, RotateCcw, ArrowDown, ScanLine, Shuffle } from "lucide-react";
+import DOMPurify from "dompurify";
 import {
   THEMES,
   applyTheme,
@@ -84,7 +85,9 @@ function HistoryThumb({ item }: { item: HistoryItem }) {
       live = false;
     };
   }, [item]);
-  return <div className="qr-live" dangerouslySetInnerHTML={{ __html: thumb }} />;
+  // Sanitize SVG output with DOMPurify for defense-in-depth
+  const sanitizedThumb = DOMPurify.sanitize(thumb, { USE_PROFILES: { svg: true, svgFilters: true } });
+  return <div className="qr-live" dangerouslySetInnerHTML={{ __html: sanitizedThumb }} />;
 }
 
 /**
@@ -372,13 +375,17 @@ function Opener() {
   const cardRef = useRef<HTMLDivElement>(null);
   const preset = SPECIMEN_PRESETS.find((p) => p.id === spec) ?? SPECIMEN_PRESETS[1];
 
-  const sample = useStitchedSVG(preset.payload, preset.scale, preset.on);
-  const watermark = useStitchedSVG(
+  const sampleSVG = useStitchedSVG(preset.payload, preset.scale, preset.on);
+  const watermarkSVG = useStitchedSVG(
     "https://stitchcode.run/field-manual?batch=2026&press=offset&substrate=kraft",
     0.8,
     true,
     560,
   );
+
+  // Sanitize SVG outputs with DOMPurify for defense-in-depth
+  const sample = DOMPurify.sanitize(sampleSVG, { USE_PROFILES: { svg: true, svgFilters: true } });
+  const watermark = DOMPurify.sanitize(watermarkSVG, { USE_PROFILES: { svg: true, svgFilters: true } });
 
   /* tactile pointer-tilt on the specimen card */
   useEffect(() => {
