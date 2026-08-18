@@ -2,15 +2,23 @@
 # Dependencies
 node_modules/
 
-# Build outputs
+# Editors
+.vscode/
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Build artifacts
 dist/
 build/
 target/
-
-# Environment variables
-.env
-.env.local
-*.env.*
 
 # Python
 __pycache__/
@@ -21,74 +29,18 @@ __pycache__/
 env/
 venv/
 .venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-*.pot
-*.pyc
-*.pyo
-*.pyd
-.MF
-tags
-TAGS
-.IDEAssistant
-.DS_Store
-Thumbs.db
+.ENV
+.python-version
 
-# Logs
-*.log
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Thumbs.db:encryptable
-
-# Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Node
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Compiled JavaScript
-*.js.map
-*.jsx.map
-*.ts.map
-*.tsx.map
-
-# Temporary files
-*.tmp
-*.temp
-*.bak
-*.backup
-
-# Compressed archives
+# Compressed files
 *.zip
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.rar
-*.7z
 *.gz
+*.tar
+*.tgz
 *.bz2
 *.xz
+*.7z
+*.rar
 *.zst
 *.lz4
 *.lzh
@@ -99,26 +51,8 @@ yarn-error.log*
 *.Z
 *.lz
 *.lzo
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-.coverage.*
-
-# MyPy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# PyTest
-.pytest_cache/
-
-# Electron specific
-release/
-app/
-out/
-
-# TypeScript
-*.tsbuildinfo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 ```
