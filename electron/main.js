@@ -8,8 +8,11 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
     },
-    icon: path.join(__dirname, '../public/icons/icon.svg'),
+    icon: path.join(__dirname, '../public/icons/icon.png'),
+    titleBarStyle: 'hiddenInset',
+    backgroundColor: '#ffffff'
   });
 
   // Load the built Vite app

@@ -63,13 +63,13 @@
       "target": [
         "nsis"
       ],
-      "icon": "public/icons/icon.svg"
+      "icon": "public/icons/icon.png"
     },
     "mac": {
       "target": [
-        "dmg"
+        "zip"
       ],
-      "icon": "public/icons/icon.svg",
+      "icon": "public/icons/icon.png",
       "category": "public.app-category.graphics-design"
     },
     "linux": {
@@ -78,7 +78,7 @@
         "deb",
         "rpm"
       ],
-      "icon": "public/icons/icon.svg",
+      "icon": "public/icons/icon.png",
       "category": "Graphics"
     }
   }

@@ -18,6 +18,7 @@ import { StylePanel, DEFAULT_STYLE, toRenderOptions, type StyleState } from "./c
 import { PreviewPanel } from "./components/PreviewPanel";
 import { useLogoGrid } from "./lib/useLogoGrid";
 import { Anatomy, Checklist, FAQ } from "./components/Sections";
+import { secureStorageSet, secureStorageGet, secureStorageRemove } from "./lib/crypto";
 
 /* ------------------------------------------------------------------ */
 /* History persistence                                                 */
@@ -86,14 +87,38 @@ function HistoryThumb({ item }: { item: HistoryItem }) {
   return <div className="qr-live" dangerouslySetInnerHTML={{ __html: thumb }} />;
 }
 
-function loadHistory(): HistoryItem[] {
+/**
+ * Loads history from encrypted localStorage.
+ * Falls back to legacy unencrypted format for migration.
+ */
+async function loadHistory(): Promise<HistoryItem[]> {
   try {
+    // Try encrypted storage first
+    const encrypted = await secureStorageGet<HistoryItem[]>(HISTORY_KEY);
+    if (encrypted && Array.isArray(encrypted)) {
+      return encrypted.filter(
+        (x): x is HistoryItem =>
+          !!x &&
+          typeof x === "object" &&
+          typeof x.id === "string" &&
+          typeof x.ts === "number" &&
+          typeof x.type === "string" &&
+          typeof x.payload === "string" &&
+          !!x.style &&
+          typeof x.style === "object" &&
+          !!x.forms &&
+          typeof x.forms === "object",
+      );
+    }
+    
+    // Fallback: migrate from legacy unencrypted format
     const raw = localStorage.getItem(HISTORY_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    // Strict schema validation for history items from localStorage
-    return parsed.filter(
+    
+    // Migrate to encrypted storage
+    const valid = parsed.filter(
       (x): x is HistoryItem =>
         !!x &&
         typeof x === "object" &&
@@ -106,6 +131,13 @@ function loadHistory(): HistoryItem[] {
         !!x.forms &&
         typeof x.forms === "object",
     );
+    
+    // Encrypt and store, then remove legacy
+    if (valid.length > 0) {
+      await secureStorageSet(HISTORY_KEY, valid);
+      localStorage.removeItem(HISTORY_KEY);
+    }
+    return valid;
   } catch {
     return [];
   }
@@ -501,7 +533,13 @@ function Workbench() {
   const [type, setType] = useState<QRType>("url");
   const [forms, setForms] = useState<FormState>(DEFAULT_FORMS);
   const [style, setStyle] = useState<StyleState>(DEFAULT_STYLE);
-  const [history, setHistory] = useState<HistoryItem[]>(loadHistory);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  
+  // Load history on mount
+  useEffect(() => {
+    loadHistory().then(setHistory);
+  }, []);
+  
   const saveTimer = useRef<number | null>(null);
 
   const payload = useMemo(() => buildPayload(type, forms), [type, forms]);
@@ -537,11 +575,11 @@ function Workbench() {
       ? Math.round(((logoN * logoN) / (matrix.size * matrix.size)) * 100)
       : null;
 
-  /* autosave history (debounced) */
+  /* autosave history (debounced) - now with encryption */
   useEffect(() => {
     if (!payload || !matrix) return;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => {
+    saveTimer.current = window.setTimeout(async () => {
       setHistory((h) => {
         const sig = JSON.stringify({ p: payload, s: { ...style, logo: style.logo ? "1" : "0" } });
         if (h[0] && JSON.stringify({ p: h[0].payload, s: { ...h[0].style, logo: h[0].style.logo ? "1" : "0" } }) === sig)
@@ -555,11 +593,10 @@ function Workbench() {
           payload,
         };
         const next = [item, ...h].slice(0, 8);
-        try {
-          localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-        } catch {
-          /* storage full — skip */
-        }
+        // Encrypt and save to secure storage
+        secureStorageSet(HISTORY_KEY, next).catch(() => {
+          /* encryption or storage failed — skip silently */
+        });
         return next;
       });
     }, 600);
@@ -577,25 +614,20 @@ function Workbench() {
     document.getElementById("studio")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const removeItem = (id: string) => {
+  const removeItem = async (id: string) => {
     setHistory((h) => {
       const next = h.filter((x) => x.id !== id);
-      try {
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-      } catch {
+      // Update encrypted storage asynchronously
+      secureStorageSet(HISTORY_KEY, next).catch(() => {
         /* ignore */
-      }
+      });
       return next;
     });
   };
 
-  const clearAll = () => {
+  const clearAll = async () => {
     setHistory([]);
-    try {
-      localStorage.removeItem(HISTORY_KEY);
-    } catch {
-      /* ignore */
-    }
+    await secureStorageRemove(HISTORY_KEY);
     toast("info", "History cleared");
   };
 

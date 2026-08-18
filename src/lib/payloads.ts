@@ -2,6 +2,8 @@
 /* QR payload builders — the exact strings encoded into each code      */
 /* ------------------------------------------------------------------ */
 
+import type { ECLevel } from "./qr";
+
 export type QRType = "url" | "text" | "wifi" | "vcard" | "email" | "sms" | "phone";
 
 export const QR_TYPE_META: Record<QRType, { label: string; short: string }> = {
@@ -156,6 +158,18 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const URL_RE =
   /^[a-z][a-z0-9+.-]*:\/\/[^\s.]+(\.[^\s.]+)+([/?#]\S*)?$/i;
 
+/**
+ * QR Code capacity limits (bytes) for Version 40 at each error correction level.
+ * Based on ISO/IEC 18004:2015 specifications.
+ * These represent maximum byte capacity for binary mode encoding.
+ */
+const MAX_PAYLOAD_BYTES: Record<ECLevel, number> = {
+  L: 2953, // Low (~7% recovery)
+  M: 2331, // Medium (~15% recovery)
+  Q: 1725, // High (~25% recovery)
+  H: 1273, // Max (~30% recovery) - recommended for logo inlays
+};
+
 /** Returns a list of blocking problems. Empty = payload is encodeable. */
 export function validate(type: QRType, f: FormState): string[] {
   switch (type) {
@@ -163,15 +177,34 @@ export function validate(type: QRType, f: FormState): string[] {
       if (!f.url.trim()) return ["Enter a destination URL"];
       const u = normalizeUrl(f.url);
       if (!URL_RE.test(u)) return ["That doesn't parse as a valid URL"];
+      // Check payload size against lowest EC level (most permissive)
+      const bytes = new TextEncoder().encode(u).length;
+      if (bytes > MAX_PAYLOAD_BYTES.L) {
+        return ["URL exceeds maximum QR code capacity. Shorten the URL."];
+      }
       return [];
     }
-    case "text":
-      return f.text.trim() ? [] : ["Type something to encode"];
+    case "text": {
+      if (!f.text.trim()) return ["Type something to encode"];
+      // Validate text payload size
+      const bytes = new TextEncoder().encode(f.text).length;
+      if (bytes > MAX_PAYLOAD_BYTES.L) {
+        return ["Text exceeds maximum QR code capacity. Shorten the message."];
+      }
+      return [];
+    }
     case "wifi": {
       const issues: string[] = [];
       if (!f.wifi.ssid.trim()) issues.push("Network name (SSID) is required");
       if (f.wifi.encryption !== "nopass" && !f.wifi.password)
         issues.push("Password required for WPA / WEP");
+      
+      // Validate WiFi payload size (can be large with long passwords)
+      const testPayload = buildPayload("wifi", f);
+      const bytes = new TextEncoder().encode(testPayload).length;
+      if (bytes > MAX_PAYLOAD_BYTES.L) {
+        issues.push("WiFi credentials exceed QR code capacity. Use shorter SSID/password.");
+      }
       return issues;
     }
     case "vcard": {
@@ -179,21 +212,49 @@ export function validate(type: QRType, f: FormState): string[] {
         return ["Add at least a first or last name"];
       if (f.vcard.email && !EMAIL_RE.test(f.vcard.email.trim()))
         return ["The contact email looks invalid"];
+      
+      // Validate vCard payload size
+      const testPayload = buildPayload("vcard", f);
+      const bytes = new TextEncoder().encode(testPayload).length;
+      if (bytes > MAX_PAYLOAD_BYTES.L) {
+        return ["Contact card exceeds QR code capacity. Remove some fields."];
+      }
       return [];
     }
     case "email": {
       if (!f.email.to.trim()) return ["Recipient address is required"];
       if (!EMAIL_RE.test(f.email.to.trim())) return ["Recipient isn't a valid email"];
+      
+      // Validate email payload size (subject/body can be large)
+      const testPayload = buildPayload("email", f);
+      const bytes = new TextEncoder().encode(testPayload).length;
+      if (bytes > MAX_PAYLOAD_BYTES.L) {
+        return ["Email draft exceeds QR code capacity. Shorten subject/body."];
+      }
       return [];
     }
     case "sms": {
       const digits = f.sms.number.replace(/[^\d]/g, "");
       if (digits.length < 6) return ["Enter a valid phone number"];
+      
+      // Validate SMS payload size
+      const testPayload = buildPayload("sms", f);
+      const bytes = new TextEncoder().encode(testPayload).length;
+      if (bytes > MAX_PAYLOAD_BYTES.L) {
+        return ["Message exceeds QR code capacity. Shorten the text."];
+      }
       return [];
     }
     case "phone": {
       const digits = f.phone.replace(/[^\d]/g, "");
       if (digits.length < 6) return ["Enter a valid phone number"];
+      
+      // Validate phone payload size
+      const testPayload = buildPayload("phone", f);
+      const bytes = new TextEncoder().encode(testPayload).length;
+      if (bytes > MAX_PAYLOAD_BYTES.L) {
+        return ["Phone number format exceeds capacity."];
+      }
       return [];
     }
   }
