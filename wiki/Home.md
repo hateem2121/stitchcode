@@ -36,7 +36,7 @@ publish them to this wiki, run the one-command helper from the repo root:
 make wiki-init        # clones the wiki repo, copies wiki/*.md, pushes
 ```
 
-(Manual equivalent: clone `https://github.com/hateem2121/stitchcode.wiki.git`,
+(Manual equivalent: clone `https://github.com/RUN-APPAREL/stitchcode.wiki.git`,
 copy `wiki/*.md` into it, commit and push.)
 
 `_Sidebar.md` and `_Footer.md` are special GitHub-wiki files that build the

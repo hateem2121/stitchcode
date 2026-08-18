@@ -9,7 +9,13 @@
 # ------------------------------------------------------------------
 set -euo pipefail
 
-REPO="hateem2121/stitchcode"
+REPO="${1:-RUN-APPAREL/stitchcode}"
+if [ -z "${1:-}" ] && git config --get remote.origin.url >/dev/null 2>&1; then
+  ORIGIN_URL="$(git config --get remote.origin.url)"
+  if [[ "$ORIGIN_URL" =~ github\.com[:/]([^/]+/[^/.]+)(\.git)?$ ]]; then
+    REPO="${BASH_REMATCH[1]}"
+  fi
+fi
 WIKI_URL="https://github.com/${REPO}.wiki.git"
 TMP="$(mktemp -d)"
 

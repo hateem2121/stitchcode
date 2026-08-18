@@ -9,7 +9,7 @@
 
 **Repository**
 
-- [📖 README](https://github.com/hateem2121/stitchcode#readme)
-- [🤝 Contribute](https://github.com/hateem2121/stitchcode/blob/main/CONTRIBUTING.md)
-- [📜 Licence (MIT)](https://github.com/hateem2121/stitchcode/blob/main/LICENSE)
-- [🛡️ Security Policy](https://github.com/hateem2121/stitchcode/blob/main/SECURITY.md)
+- [📖 README](https://github.com/RUN-APPAREL/stitchcode#readme)
+- [🤝 Contribute](https://github.com/RUN-APPAREL/stitchcode/blob/main/CONTRIBUTING.md)
+- [📜 Licence (MIT)](https://github.com/RUN-APPAREL/stitchcode/blob/main/LICENSE)
+- [🛡️ Security Policy](https://github.com/RUN-APPAREL/stitchcode/blob/main/SECURITY.md)

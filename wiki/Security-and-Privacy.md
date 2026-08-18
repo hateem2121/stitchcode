@@ -31,7 +31,7 @@ flowchart LR
   style E fill:#d4edda,stroke:#155724,stroke-width:2px
 ```
 
-[View full audit report](https://github.com/hateem2121/stitchcode/blob/main/SECURITY_AUDIT_2026.md)
+[View full audit report](https://github.com/RUN-APPAREL/stitchcode/blob/main/SECURITY_AUDIT_2026.md)
 
 ---
 
@@ -74,7 +74,7 @@ flowchart LR
 | Salt | 16 bytes random | Per encryption |
 | IV | 12 bytes random | Per encryption |
 
-[Read technical deep-dive](https://github.com/hateem2121/stitchcode/blob/main/docs/SECURITY_BEST_PRACTICES.md)
+[Read technical deep-dive](https://github.com/RUN-APPAREL/stitchcode/blob/main/docs/SECURITY_BEST_PRACTICES.md)
 
 ---
 
@@ -176,7 +176,7 @@ When installed as a desktop app:
 | CSP | Enforced via headers | Same strict rules as web version |
 | Preload API | Minimal exposure | Only essential functions exposed |
 
-[View Electron security details](https://github.com/hateem2121/stitchcode/blob/main/electron/preload.js)
+[View Electron security details](https://github.com/RUN-APPAREL/stitchcode/blob/main/electron/preload.js)
 
 ---
 
@@ -190,7 +190,7 @@ A code that doesn't scan is a security issue (wasted resources, failed campaigns
 - ✅ Error correction level checks
 - ✅ Capacity validation per ISO standard
 
-[Learn about scan safety](https://github.com/hateem2121/stitchcode/blob/main/docs/SCAN_SAFETY.md)
+[Learn about scan safety](https://github.com/RUN-APPAREL/stitchcode/blob/main/docs/SCAN_SAFETY.md)
 
 ---
 
@@ -226,7 +226,7 @@ Found something concerning? Please report it responsibly:
 | Fix & Release | As fast as safely possible |
 | Public Credit | In release notes (if you want) |
 
-[Full security policy](https://github.com/hateem2121/stitchcode/blob/main/SECURITY.md)
+[Full security policy](https://github.com/RUN-APPAREL/stitchcode/blob/main/SECURITY.md)
 
 ---
 
@@ -247,8 +247,8 @@ If hosting the app yourself:
 3. Automated security scanning in CI/CD
 4. Consider bug bounty program
 
-[Self-hosting guide](https://github.com/hateem2121/stitchcode/blob/main/docs/SELF_HOSTING.md)  
-[Production checklist](https://github.com/hateem2121/stitchcode/blob/main/docs/PRODUCTION_CHECKLIST.md)
+[Self-hosting guide](https://github.com/RUN-APPAREL/stitchcode/blob/main/docs/SELF_HOSTING.md)  
+[Production checklist](https://github.com/RUN-APPAREL/stitchcode/blob/main/docs/PRODUCTION_CHECKLIST.md)
 
 ---
 
@@ -285,6 +285,6 @@ If hosting the app yourself:
 
 **Built with care • Audited for safety • Trusted by design**
 
-[📖 View Full Audit Report](https://github.com/hateem2121/stitchcode/blob/main/SECURITY_AUDIT_2026.md) · [🛡️ Security Policy](https://github.com/hateem2121/stitchcode/blob/main/SECURITY.md)
+[📖 View Full Audit Report](https://github.com/RUN-APPAREL/stitchcode/blob/main/SECURITY_AUDIT_2026.md) · [🛡️ Security Policy](https://github.com/RUN-APPAREL/stitchcode/blob/main/SECURITY.md)
 
 </div>

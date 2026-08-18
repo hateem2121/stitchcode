@@ -1,6 +1,6 @@
-```
 # Build artifacts
 dist/
+dist-electron/
 build/
 
 # Dependencies
@@ -17,4 +17,4 @@ node_modules/
 # Editors
 .vscode/
 .idea/
-```
+.DS_Store
