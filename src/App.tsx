@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, MotionConfig, animate } from "motion/react";
 import { QrCode, WifiOff, History, Trash2, RotateCcw, ArrowDown, ScanLine, Shuffle } from "lucide-react";
 import DOMPurify from "dompurify";
+DOMPurify.sanitize(""); // Initialize DOMPurify with window context
 import {
   THEMES,
   applyTheme,
