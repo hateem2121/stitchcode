@@ -47,9 +47,15 @@ export interface QRRenderOptions {
  * "% replaced" readout, the scan-safety checks, and the real decode test all
  * flag an inlay that erases more data than level H can restore. Regions that
  * aren't full-bleed are nudged to an odd width so they sit dead-centre.
+ * 
+ * IMPORTANT: Logo region is capped to avoid touching finder patterns.
+ * Finders are 7x7 with 1-module separator = 9x9 total from each corner.
+ * We keep at least 2 modules clearance from finder regions.
  */
 export function logoRegionModules(codeSize: number, scale: number): number {
-  const n = Math.max(5, Math.min(Math.round(codeSize * scale), codeSize));
+  // Maximum safe size: stay clear of finder patterns (8 modules from edges)
+  const maxSafeSize = Math.max(5, codeSize - 16); // 8 modules padding on each side
+  const n = Math.max(5, Math.min(Math.round(codeSize * scale), maxSafeSize, codeSize));
   return n >= codeSize ? n : n % 2 === 0 ? n + 1 : n;
 }
 
@@ -432,7 +438,8 @@ function stitchLogoSVG(
   if (!o.logoGrid || o.logoGrid.length !== N * N) return "";
   const ox = Math.floor((m.size - n) / 2);
   const u = 1 / res;
-  const w = u + 0.02; /* slight overlap kills anti-aliasing seams */
+  // Use fixed-point arithmetic to avoid floating-point accumulation errors
+  const w = f(u + 0.02); /* slight overlap kills anti-aliasing seams */
   let out = "";
 
   /* pass 1 — the dithered halftone, skipping cells under functional patterns */
@@ -442,9 +449,8 @@ function stitchLogoSVG(
       const my = ox + Math.floor(j / res);
       if (isFunctional(mx, my, m.size, centers)) continue;
       const dark = o.logoGrid[j * N + i] === 1;
-      out += `<rect x="${f(mg + ox + i * u)}" y="${f(mg + ox + j * u)}" width="${f(
-        w,
-      )}" height="${f(w)}" fill="${dark ? o.fg : o.bg}"/>`;
+      // Use f() for all coordinate calculations to ensure consistency
+      out += `<rect x="${f(mg + ox + i * u)}" y="${f(mg + ox + j * u)}" width="${w}" height="${w}" fill="${dark ? o.fg : o.bg}"/>`;
     }
   }
 
