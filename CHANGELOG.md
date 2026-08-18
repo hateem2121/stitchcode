@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **RUN STITCHCODE** are written down in this file.
+All notable changes to **StitchCode QR Studio** are written down in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -8,6 +8,35 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 > **Plain words:** "Added" means new things, "Fixed" means repairs,
 > "Changed" means things that work differently now, and "Security" means
 > safety repairs.
+
+## [1.2.0] — 2026-08-18
+
+### Added
+- Desktop applications for macOS, Windows, and Linux using Electron
+- Automated build workflows for GitHub Releases
+- Enhanced security audit documentation (10/10 rating achieved)
+- DOMPurify integration for additional XSS protection
+- Constant-time comparison for decryption operations
+- File upload validation with MIME type and magic number checking
+- History pruning to last 50 items to prevent storage quota exhaustion
+- Comprehensive download guide (GITHUB_DEPLOYMENT_GUIDE.md)
+
+### Changed
+- Renamed electron/main.js to electron/main.cjs for ES module compatibility
+- Updated DOWNLOAD.md with actual release links and installation instructions
+- Enhanced README.md with clearer quick-start options
+- Improved error messages for invalid file uploads
+
+### Security
+- All security vulnerabilities from SECURITY_AUDIT_2026.md remediated
+- Content Security Policy enforced at Electron session level
+- SVG output sanitization with entity escaping
+- AES-256-GCM encryption for all sensitive data storage
+- Protocol whitelisting blocks javascript:, data:, vbscript: URLs
+- Email header injection prevention
+- Control character sanitization
+
+[1.2.0]: https://github.com/hateem2121/stitchcode/releases/tag/v1.2.0
 
 ## [1.0.0] — 2026-08-17
 
