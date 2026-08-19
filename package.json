@@ -2,6 +2,11 @@
   "name": "stitchcode-qr-studio",
   "version": "1.2.0",
   "description": "Professional QR Code Studio with logo stitching technology",
+  "homepage": "https://github.com/stitchcode/stitchcode-qr-studio",
+  "author": {
+    "name": "StitchCode",
+    "email": "support@stitchcode.com"
+  },
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -76,8 +81,7 @@
     "linux": {
       "target": [
         "AppImage",
-        "deb",
-        "rpm"
+        "deb"
       ],
       "icon": "public/icons/icon.png",
       "category": "Graphics"

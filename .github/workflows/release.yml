@@ -74,7 +74,6 @@ jobs:
           path: |
             dist-electron/*.AppImage
             dist-electron/*.deb
-            dist-electron/*.rpm
           if-no-files-found: error
   
   release:
