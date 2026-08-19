@@ -1,8 +1,8 @@
 {
   "name": "stitchcode-qr-studio",
-  "version": "1.2.0",
+  "version": "1.2.3",
   "description": "Professional QR Code Studio with logo stitching technology",
-  "homepage": "https://github.com/stitchcode/stitchcode-qr-studio",
+  "homepage": "https://github.com/RUN-APPAREL/stitchcode",
   "author": {
     "name": "StitchCode",
     "email": "support@stitchcode.com"

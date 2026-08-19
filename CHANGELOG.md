@@ -9,6 +9,18 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 > "Changed" means things that work differently now, and "Security" means
 > safety repairs.
 
+## [1.2.3] — 2026-08-19
+
+### Fixed
+- Fixed Electron macOS distribution artifact generation and packaging path in CI/CD release workflow
+- Fixed matrix build cancellation by configuring non-blocking fail-fast behavior across platforms
+- Corrected `.gitignore` rules syntax and excluded build output directories
+
+### Added
+- Multi-format macOS distribution packaging supporting both `.dmg` installer and `.zip` archive
+
+[1.2.3]: https://github.com/RUN-APPAREL/stitchcode/releases/tag/v1.2.3
+
 ## [1.2.0] — 2026-08-18
 
 ### Added
@@ -36,7 +48,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Email header injection prevention
 - Control character sanitization
 
-[1.2.0]: https://github.com/hateem2121/stitchcode/releases/tag/v1.2.0
+[1.2.0]: https://github.com/RUN-APPAREL/stitchcode/releases/tag/v1.2.0
 
 ## [1.0.0] — 2026-08-17
 

@@ -1,15 +1,17 @@
 # 📦 Download StitchCode QR Studio
 
-## Latest Release: v1.2.0
+## Latest Release: v1.2.3
 
 ### 🍎 macOS (Intel/Apple Silicon)
-- **Format**: ZIP archive containing `.app` bundle
-- **Size**: ~361 MB (compressed)
-- **Download**: [StitchCode-mac.zip](https://github.com/hateem2121/stitchcode/releases/download/v1.2.0/StitchCode-mac.zip)
+- **Format**: DMG Installer / ZIP archive containing `.app` bundle
+- **Size**: ~132 MB (compressed)
+- **Downloads**:
+  - [StitchCode-1.2.3-arm64.dmg](https://github.com/RUN-APPAREL/stitchcode/releases/download/v1.2.3/StitchCode-1.2.3-arm64.dmg)
+  - [StitchCode-1.2.3-arm64-mac.zip](https://github.com/RUN-APPAREL/stitchcode/releases/download/v1.2.3/StitchCode-1.2.3-arm64-mac.zip)
 
 #### Installation Instructions:
-1. Download `StitchCode-mac.zip`
-2. Double-click to extract
+1. Download `StitchCode-1.2.3-arm64.dmg` (or `StitchCode-1.2.3-arm64-mac.zip`)
+2. Double-click to open
 3. Drag `StitchCode.app` to your Applications folder
 4. Right-click and select "Open" (first time only, to bypass Gatekeeper)
 
@@ -18,10 +20,10 @@
 ### 🪟 Windows
 - **Format**: NSIS Installer (.exe)
 - **Architecture**: x64
-- **Download**: [StitchCode Setup.exe](https://github.com/hateem2121/stitchcode/releases/download/v1.2.0/StitchCode.Setup.exe)
+- **Download**: [StitchCode Setup 1.2.3.exe](https://github.com/RUN-APPAREL/stitchcode/releases/download/v1.2.3/StitchCode.Setup.1.2.3.exe)
 
 #### Installation Instructions:
-1. Download `StitchCode.Setup.exe`
+1. Download installer
 2. Double-click to run the installer
 3. Follow the installation wizard
 4. Launch from Start Menu or Desktop shortcut
@@ -32,12 +34,10 @@
 Available formats:
 - **AppImage** - Universal package (recommended)
 - **DEB** - Debian/Ubuntu
-- **RPM** - Fedora/RHEL
 
 **Download links**:
-- [StitchCode.AppImage](https://github.com/hateem2121/stitchcode/releases/download/v1.2.0/StitchCode.AppImage)
-- [StitchCode.deb](https://github.com/hateem2121/stitchcode/releases/download/v1.2.0/StitchCode.deb)
-- [StitchCode.rpm](https://github.com/hateem2121/stitchcode/releases/download/v1.2.0/StitchCode.rpm)
+- [StitchCode-1.2.3.AppImage](https://github.com/RUN-APPAREL/stitchcode/releases/download/v1.2.3/StitchCode-1.2.3.AppImage)
+- [StitchCode_1.2.3_amd64.deb](https://github.com/RUN-APPAREL/stitchcode/releases/download/v1.2.3/stitchcode-qr-studio_1.2.3_amd64.deb)
 
 **Installation**:
 ```bash
@@ -63,7 +63,7 @@ sudo rpm -i StitchCode.rpm
 ### Steps
 ```bash
 # Clone repository
-git clone https://github.com/hateem2121/stitchcode.git
+git clone https://github.com/RUN-APPAREL/stitchcode.git
 cd stitchcode
 
 # Install dependencies
@@ -78,16 +78,16 @@ npm run electron:build        # All platforms
 
 ### Output Location
 Built applications are located in the `dist-electron/` directory:
-- macOS: `StitchCode-mac.zip`
-- Windows: `StitchCode.Setup.exe`
-- Linux: `StitchCode.AppImage`, `StitchCode.deb`, `StitchCode.rpm`
+- macOS: `StitchCode-1.2.3-arm64.dmg`, `StitchCode-1.2.3-arm64-mac.zip`
+- Windows: `StitchCode Setup 1.2.3.exe`
+- Linux: `StitchCode-1.2.3.AppImage`, `stitchcode-qr-studio_1.2.3_amd64.deb`
 
 ---
 
 ## 🌐 Web App (No Installation Required)
 
 Use StitchCode directly in your browser:
-1. Visit: https://hateem2121.github.io/stitchcode/
+1. Visit: https://run-apparel.github.io/stitchcode/
 2. Install as PWA (Progressive Web App):
    - **Chrome**: Click install icon in address bar
    - **Safari**: File → Add to Dock
@@ -151,7 +151,7 @@ chmod +x StitchCode.AppImage
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/hateem2121/stitchcode/issues)
+- **Issues**: [GitHub Issues](https://github.com/RUN-APPAREL/stitchcode/issues)
 - **Documentation**: See main README.md
 - **Security Reports**: See SECURITY.md
-- **Community Discussions**: [GitHub Discussions](https://github.com/hateem2121/stitchcode/discussions)
+- **Community Discussions**: [GitHub Discussions](https://github.com/RUN-APPAREL/stitchcode/discussions)
