@@ -73,6 +73,7 @@
     },
     "mac": {
       "target": [
+        "dmg",
         "zip"
       ],
       "icon": "public/icons/icon.png",
