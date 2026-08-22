@@ -23,6 +23,21 @@ if (typeof window !== "undefined" && !window.ResizeObserver) {
   };
 }
 
+// Polyfill IntersectionObserver for jsdom
+if (typeof window !== "undefined" && !window.IntersectionObserver) {
+  window.IntersectionObserver = class IntersectionObserver {
+    root = null;
+    rootMargin = "";
+    thresholds = [];
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  } as any;
+}
+
 // Ensure Web Crypto API is available in test environment
 if (typeof window !== "undefined" && !window.crypto?.subtle) {
   const { webcrypto } = require("node:crypto");
