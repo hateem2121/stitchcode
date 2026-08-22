@@ -50,7 +50,7 @@ if (typeof window !== "undefined" && !window.crypto?.subtle) {
 // Mock HTMLCanvasElement context for rendering logic in jsdom
 if (typeof HTMLCanvasElement !== "undefined") {
   const originalGetContext = HTMLCanvasElement.prototype.getContext;
-  HTMLCanvasElement.prototype.getContext = function (contextType: string, ...args: any[]) {
+  HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, contextType: string, ...args: any[]) {
     if (contextType === "2d") {
       return {
         canvas: this,
@@ -88,7 +88,7 @@ if (typeof HTMLCanvasElement !== "undefined") {
       } as unknown as CanvasRenderingContext2D;
     }
     return originalGetContext.call(this, contextType as any, ...args);
-  };
+  } as any;
 
   HTMLCanvasElement.prototype.toDataURL = function () {
     return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
