@@ -64,7 +64,7 @@ Wait 5-10 minutes. You'll find the files in `dist-electron/`:
 5. Click "Publish release"
 
 ### Step 5: Update Download Links
-Edit `DOWNLOAD.md` and replace `hateem2121` with YOUR username in all the download links.
+Edit `DOWNLOAD.md` and replace `RUN-APPAREL` with YOUR username in all the download links.
 
 ---
 

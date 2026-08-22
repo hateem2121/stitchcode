@@ -87,7 +87,11 @@ Built applications are located in the `dist-electron/` directory:
 ## 🌐 Web App (No Installation Required)
 
 Use StitchCode directly in your browser:
+<<<<<<< HEAD
 1. Visit: https://run-apparel.github.io/stitchcode/
+=======
+1. Visit: https://RUN-APPAREL.github.io/stitchcode/
+>>>>>>> d12ba6cc (chore: canonicalize repository identity to RUN-APPAREL/stitchcode)
 2. Install as PWA (Progressive Web App):
    - **Chrome**: Click install icon in address bar
    - **Safari**: File → Add to Dock

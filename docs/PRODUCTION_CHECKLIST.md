@@ -7,7 +7,7 @@ Everything below is already wired — this is the *verification* pass.
 
 ## Phase 1 · Before the first push
 
-The canonical handle is **`hateem2121/stitchcode`** — every badge, URL,
+The canonical handle is **`RUN-APPAREL/stitchcode`** — every badge, URL,
 `docker run` command, CODEOWNERS entry and wiki link already points at it.
 
 ```mermaid
@@ -20,11 +20,11 @@ flowchart LR
   style E fill:#eaf6ee,stroke:#132a22,stroke-width:2px
 ```
 
-- [x] Every reference uses the real handle `hateem2121`
+- [x] Every reference uses the real handle `RUN-APPAREL`
 - [x] `.gitignore`, `LICENSE`, `README`, `CHANGELOG` present
 - [ ] First push triggers the **CI** workflow → both Node jobs pass
 - [ ] Pages source switched to **GitHub Actions** → site goes live at
-      `hateem2121.github.io/stitchcode`
+      `RUN-APPAREL.github.io/stitchcode`
 - [ ] Wiki initialised (one-time: create any wiki page on GitHub), then
       `make wiki-init` pushes `wiki/*.md` to `stitchcode.wiki.git`
 - [ ] Social preview set: Settings → General → Social preview → upload
@@ -32,14 +32,14 @@ flowchart LR
 
 > **Forking under a different name?** One command re-points everything:
 > ```bash
-> grep -rl "hateem2121" . --exclude-dir=node_modules | xargs sed -i "s/hateem2121/YOUR-HANDLE/g"
+> grep -rl "RUN-APPAREL" . --exclude-dir=node_modules | xargs sed -i "s/RUN-APPAREL/YOUR-HANDLE/g"
 > ```
 
 ## Phase 2 · First release
 
 - [ ] `make release` — tags `v1.0.0`, pushes the tag, and the robots take over
 - [ ] Release workflow publishes a **zip** (portable, relative-base) ✔
-- [ ] Docker workflow publishes **ghcr.io/hateem2121/stitchcode:1.0.0** ✔
+- [ ] Docker workflow publishes **ghcr.io/run-apparel/stitchcode:1.0.0** ✔
 - [ ] `CHANGELOG.md` already lists 1.0.0 (it does)
 
 ## Phase 3 · Smoke-test the live studio

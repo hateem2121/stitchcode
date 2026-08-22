@@ -3,8 +3,12 @@
   "version": "1.2.3",
   "description": "Professional QR Code Studio with logo stitching technology",
   "homepage": "https://github.com/RUN-APPAREL/stitchcode",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RUN-APPAREL/stitchcode.git"
+  },
   "author": {
-    "name": "StitchCode",
+    "name": "RUN-APPAREL",
     "email": "support@stitchcode.com"
   },
   "private": true,

@@ -4,7 +4,7 @@
 
 ### Option 1: Use It Right Now! ⚡
 1. Open your web browser
-2. Go to: **https://hateem2121.github.io/stitchcode/**
+2. Go to: **https://RUN-APPAREL.github.io/stitchcode/**
 3. Start making QR codes! ✨
 
 **No download needed!** It works in your browser and remembers your work.
@@ -72,6 +72,6 @@
 
 - 📖 Read the full [README](./README.md)
 - 📥 See [DOWNLOAD.md](./DOWNLOAD.md) for more details
-- ❓ Ask on [GitHub Issues](https://github.com/hateem2121/stitchcode/issues)
+- ❓ Ask on [GitHub Issues](https://github.com/RUN-APPAREL/stitchcode/issues)
 
 **Have fun making QR codes!** 🎉

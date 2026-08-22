@@ -47,7 +47,7 @@ Pick the path that fits — no coding needed for the first two:
 | 🌐 | **Use it online** | Everyone | Open the GitHub Pages link (shown on the right of the repo) |
 | 📲 | **Install it** | Everyone | Open the Pages link once → use your browser's **"Install app"** — it then works with no internet at all |
 | 📦 | **Run the app file** | Helpers | Download the latest **Release** zip, unzip it, then run `npx serve .` (or `python3 -m http.server`) in that folder and open the link it prints |
-| 🐳 | **Run with Docker** | Helpers | `docker run -p 8080:80 ghcr.io/RUN-APPAREL/stitchcode` → open `localhost:8080` |
+| 🐳 | **Run with Docker** | Helpers | `docker run -p 8080:80 ghcr.io/run-apparel/stitchcode` → open `localhost:8080` |
 | 🛠️ | **Build from source** | Curious makers | Follow the three commands below |
 
 > 💡 **Why can't I just double-click `index.html`?** Modern web apps are built

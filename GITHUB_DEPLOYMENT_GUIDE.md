@@ -119,7 +119,7 @@ This creates files in the `dist-electron/` folder:
 Now update the `DOWNLOAD.md` file with your actual GitHub username:
 
 1. Open `DOWNLOAD.md` in your code editor
-2. Replace `hateem2121` with YOUR GitHub username in all these links:
+2. Replace `RUN-APPAREL` with YOUR GitHub username in all these links:
    ```
    https://github.com/YOUR_USERNAME/stitchcode/releases/download/v1.2.0/...
    ```
