@@ -92,6 +92,14 @@ export function PreviewPanel({
   /* style state → renderer options (merged-logo grid included) */
   const renderOpts = (bg: string) => toRenderOptions(style, logoGrid, logoN, bg);
 
+  /* spec floor: every EXPORT (PNG/SVG/print sheet) carries at least the
+     4-module quiet zone from ISO 18004. The live preview shows exactly what
+     was built; downloads never violate the spec. */
+  const exportOpts = () => {
+    const o = renderOpts(style.bg);
+    return { ...o, margin: Math.max(4, o.margin) };
+  };
+
   /* Real decode test: render the exact export to a canvas and scan it back,
      confirming the payload round-trips. Debounced + request-id guarded. */
   useEffect(() => {
@@ -100,7 +108,7 @@ export function PreviewPanel({
     const epoch = decodeEpoch;
     const t = window.setTimeout(async () => {
       try {
-        const canvas = await renderCanvas(matrix, renderOpts(style.bg), 768);
+        const canvas = await renderCanvas(matrix, exportOpts(), 768);
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           if (decodeReq.current === id) setDecodeRes({ epoch, status: "error" });
@@ -192,6 +200,20 @@ export function PreviewPanel({
           : "Light code on dark — most phone cameras struggle with this",
         pass: polarity,
       },
+      {
+        /* scan distance rule of thumb: readable distance ≈ code width × 10,
+           and modules should print ≥ 0.4 mm before ink spread closes gaps */
+        label: "Print size",
+        detail: (() => {
+          const modules = matrix.size + 2 * Math.max(4, style.margin);
+          const mmAt5cm = 50 / modules;
+          const minCm = (modules * 0.4) / 10;
+          return mmAt5cm >= 0.4
+            ? `At 5 cm across, each square prints ${mmAt5cm.toFixed(2)} mm — comfortably scannable from ~50 cm`
+            : `Needs ≥ ${minCm.toFixed(1)} cm across (at 5 cm the squares print only ${mmAt5cm.toFixed(2)} mm — below the 0.4 mm floor)`;
+        })(),
+        pass: 50 / (matrix.size + 2 * Math.max(4, style.margin)) >= 0.4,
+      },
     ];
     if (style.logo) {
       const area = logoN > 0 ? (logoN * logoN) / (matrix.size * matrix.size) : 0;
@@ -252,7 +274,7 @@ export function PreviewPanel({
 
   const doPng = async (): Promise<Blob | null> => {
     if (!matrix) return null;
-    const canvas = await renderCanvas(matrix, renderOpts(style.bg), style.exportPx);
+    const canvas = await renderCanvas(matrix, exportOpts(), style.exportPx);
     return canvasToBlob(canvas);
   };
 
@@ -269,7 +291,7 @@ export function PreviewPanel({
 
   const onDownloadSvg = () => {
     if (!matrix) return;
-    const blob = new Blob([renderSVG(matrix, renderOpts(style.bg), style.exportPx)], {
+    const blob = new Blob([renderSVG(matrix, exportOpts(), style.exportPx)], {
       type: "image/svg+xml",
     });
     downloadBlob(blob, `${filenameBase}.svg`);
@@ -585,7 +607,12 @@ function PrintSheet({
   onClose: () => void;
 }) {
   const cm = ((style.exportPx / 300) * 2.54).toFixed(1);
-  const svg = renderSVG(matrix, toRenderOptions(style, logoGrid, logoN), 640);
+  /* print exports always carry the 4-module quiet zone */
+  const svg = renderSVG(
+    matrix,
+    { ...toRenderOptions(style, logoGrid, logoN), margin: Math.max(4, style.margin) },
+    640,
+  );
   const date = new Date().toLocaleDateString(undefined, {
     day: "2-digit",
     month: "short",

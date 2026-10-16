@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import App from "./App";
 
 describe("App component smoke tests", () => {
   it("renders main header, navigation, and studio section", async () => {
     render(<App />);
+    // flush the async history load (and its state updates) inside act()
+    await act(async () => {});
 
     // Check title and badges
     expect(screen.getByText("QR code studio")).toBeInTheDocument();
@@ -17,5 +19,7 @@ describe("App component smoke tests", () => {
     expect(screen.getByText("Wi-Fi")).toBeInTheDocument();
     expect(screen.getByText("Card")).toBeInTheDocument();
     expect(screen.getByText("Email")).toBeInTheDocument();
+    expect(screen.getByText("Message")).toBeInTheDocument();
+    expect(screen.getByText("Phone")).toBeInTheDocument();
   });
 });

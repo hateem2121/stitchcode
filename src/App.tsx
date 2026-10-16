@@ -21,7 +21,7 @@ import { DEFAULT_STYLE, toRenderOptions, type StyleState } from "./lib/style";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { useLogoGrid } from "./lib/useLogoGrid";
 import { Anatomy, Checklist, FAQ } from "./components/Sections";
-import { secureStorageSet, secureStorageGet, secureStorageRemove } from "./lib/crypto";
+import { secureStorageSet, secureStorageGet } from "./lib/crypto";
 
 /* ------------------------------------------------------------------ */
 /* History persistence                                                 */
@@ -35,6 +35,24 @@ interface HistoryItem {
   payload: string;
 }
 const HISTORY_KEY = "stitchcode:history";
+/** Kept small on purpose: history stores full style (including the logo data
+ *  URL) and encrypted blobs must fit the localStorage quota. */
+const HISTORY_MAX = 8;
+
+/** Identity of a build for autosave dedupe — includes a logo fingerprint
+ *  (length + head/tail) so swapping the picture with identical settings still
+ *  saves, without stringifying a multi-megabyte data URL on every keystroke. */
+function historySignature(item: Pick<HistoryItem, "payload" | "style">): string {
+  const { logo, ...rest } = item.style;
+  const logoSig = logo ? `${logo.length}:${logo.slice(0, 64)}:${logo.slice(-32)}` : "";
+  return JSON.stringify({ p: item.payload, s: rest, logo: logoSig });
+}
+
+function newHistoryId(): string {
+  return typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function timeAgo(ts: number): string {
   const s = Math.max(1, Math.round((Date.now() - ts) / 1000));
@@ -550,10 +568,25 @@ function Workbench() {
   const [forms, setForms] = useState<FormState>(DEFAULT_FORMS);
   const [style, setStyle] = useState<StyleState>(DEFAULT_STYLE);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  
-  // Load history on mount
+  /* autosave waits for the initial load so a fresh first save can never
+     clobber stored builds with a single-entry list */
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+
+  // Load history on mount (cancellable — the promise can resolve after
+  // StrictMode's unmount/remount cycle)
   useEffect(() => {
-    loadHistory().then(setHistory);
+    let cancelled = false;
+    loadHistory()
+      .then((items) => {
+        if (!cancelled) setHistory(items);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setHistoryLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
   
   const saveTimer = useRef<number | null>(null);
@@ -600,35 +633,53 @@ function Workbench() {
       ? Math.round(((logoN * logoN) / (matrix.size * matrix.size)) * 100)
       : null;
 
-  /* autosave history (debounced) - now with encryption */
+  /* autosave history (debounced). The updater is PURE — ids and timestamps
+     are created outside it, and persistence happens in the effect below. */
   useEffect(() => {
-    if (!payload || !matrix) return;
+    if (!payload || !matrix || !historyLoaded) return;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(async () => {
+    saveTimer.current = window.setTimeout(() => {
+      const item: HistoryItem = {
+        id: newHistoryId(),
+        ts: Date.now(),
+        type,
+        forms,
+        style,
+        payload,
+      };
+      const sig = historySignature(item);
       setHistory((h) => {
-        const sig = JSON.stringify({ p: payload, s: { ...style, logo: style.logo ? "1" : "0" } });
-        if (h[0] && JSON.stringify({ p: h[0].payload, s: { ...h[0].style, logo: h[0].style.logo ? "1" : "0" } }) === sig)
-          return h;
-        const item: HistoryItem = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          ts: Date.now(),
-          type,
-          forms,
-          style,
-          payload,
-        };
-        const next = [item, ...h].slice(0, 8);
-        // Encrypt and save to secure storage
-        secureStorageSet(HISTORY_KEY, next).catch(() => {
-          /* encryption or storage failed — skip silently */
-        });
-        return next;
+        if (h[0] && historySignature(h[0]) === sig) return h;
+        return [item, ...h].slice(0, HISTORY_MAX);
       });
     }, 600);
     return () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
-  }, [payload, matrix, type, forms, style]);
+  }, [payload, matrix, type, forms, style, historyLoaded]);
+
+  /* single persistence point: every history change (autosave, remove, clear)
+     flows through here — debounced, with quota rescue */
+  const persistTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (!historyLoaded) return;
+    if (persistTimer.current) window.clearTimeout(persistTimer.current);
+    persistTimer.current = window.setTimeout(async () => {
+      try {
+        await secureStorageSet(HISTORY_KEY, history);
+      } catch {
+        /* quota exceeded — keep the newest half and retry once */
+        try {
+          await secureStorageSet(HISTORY_KEY, history.slice(0, Math.ceil(HISTORY_MAX / 2)));
+        } catch {
+          toast("error", "Couldn't save history — browser storage is full");
+        }
+      }
+    }, 300);
+    return () => {
+      if (persistTimer.current) window.clearTimeout(persistTimer.current);
+    };
+  }, [history, historyLoaded, toast]);
 
   const restore = (item: HistoryItem) => {
     setType(item.type);
@@ -639,20 +690,13 @@ function Workbench() {
     document.getElementById("studio")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const removeItem = async (id: string) => {
-    setHistory((h) => {
-      const next = h.filter((x) => x.id !== id);
-      // Update encrypted storage asynchronously
-      secureStorageSet(HISTORY_KEY, next).catch(() => {
-        /* ignore */
-      });
-      return next;
-    });
+  const removeItem = (id: string) => {
+    /* pure update — the persistence effect writes it through */
+    setHistory((h) => h.filter((x) => x.id !== id));
   };
 
-  const clearAll = async () => {
+  const clearAll = () => {
     setHistory([]);
-    await secureStorageRemove(HISTORY_KEY);
     toast("info", "History cleared");
   };
 
