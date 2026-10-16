@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { ArrowDownUp, Upload, Trash2, AlertTriangle, Palette, Sparkles } from "lucide-react";
 import type { ECLevel, DotStyle, CornerStyle, LogoEdge } from "../lib/qr";
-import { EC_INFO } from "../lib/qr";
+import { EC_INFO, INLAY_AREA_SAFE, INLAY_AREA_WARN } from "../lib/qr";
 import type { StyleState } from "../lib/style";
 import { SAMPLE_LOGO_URL } from "../lib/sample";
 import { ColorField, IndustrialCard, Pill, Seg, SelectField, SliderRow, Tele, Tip, useToast } from "./ui";
@@ -244,7 +244,15 @@ export function StylePanel({
                   </span>
                   <Seg<"stitch" | "inlay">
                     value={style.logoMode}
-                    onChange={(v) => patch({ logoMode: v })}
+                    onChange={(v) => {
+                      /* Inlay erases data modules — always raise safety to H */
+                      if (v === "inlay" && style.ec !== "H") {
+                        patch({ logoMode: v, ec: "H" });
+                        toast("success", "Inlay carves into the code — Safety turned up to Max");
+                      } else {
+                        patch({ logoMode: v });
+                      }
+                    }}
                     options={[
                       { value: "stitch", label: "Behind the code" },
                       { value: "inlay", label: "Into the code" },
@@ -344,14 +352,18 @@ export function StylePanel({
                   mergePct !== null && (
                     <p
                       className={`flex items-center gap-1.5 text-[11px] font-bold ${
-                        mergePct > 25 ? "text-danger" : mergePct > 20 ? "text-warn" : "text-ok"
+                        mergePct > INLAY_AREA_SAFE * 100
+                        ? "text-danger"
+                        : mergePct > INLAY_AREA_WARN * 100
+                          ? "text-warn"
+                          : "text-ok"
                       }`}
                     >
-                      {mergePct > 25 ? (
+                      {mergePct > INLAY_AREA_SAFE * 100 ? (
                         <>
                           <AlertTriangle size={12} /> Too busy to scan — make your picture smaller
                         </>
-                      ) : mergePct > 20 ? (
+                      ) : mergePct > INLAY_AREA_WARN * 100 ? (
                         <>
                           <AlertTriangle size={12} /> Getting busy — try more Fade or a smaller picture
                         </>

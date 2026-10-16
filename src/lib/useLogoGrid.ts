@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { gridDarkFraction, logoRegionModules, logoToGrid, type LogoEdge, type QRMatrix } from "./qr";
+import {
+  gridDarkFraction,
+  logoRegionModules,
+  logoToGrid,
+  type ECLevel,
+  type LogoEdge,
+  type QRMatrix,
+} from "./qr";
+import { maxSafeInlayN } from "./qrSafety";
 
 export interface LogoGridState {
   grid: Uint8Array | null;
@@ -17,6 +25,8 @@ export interface LogoGridParams {
   edge: LogoEdge;
   bg: string;
   mode: "stitch" | "inlay";
+  /** error-correction level of the code being merged into */
+  ec: ECLevel;
   brightness: number;
   contrast: number;
   /** wash toward the stock colour, 0–1 */
@@ -48,7 +58,7 @@ export function useLogoGrid(
 ): LogoGridState {
   const [state, setState] = useState<LogoGridState>(IDLE);
   const reqId = useRef(0);
-  const { scale, threshold, edge, bg, mode, brightness, contrast, fade } = p;
+  const { scale, threshold, edge, bg, mode, ec, brightness, contrast, fade } = p;
 
   const missing = !logo || !matrix;
   const invalid = !!logo && !logo.startsWith("data:") && !logo.startsWith("http");
@@ -62,7 +72,13 @@ export function useLogoGrid(
     const logoUrl: string = logo;
     const m: QRMatrix = matrix;
     const id = ++reqId.current;
-    const n = logoRegionModules(m.size, scale);
+    /* Inlay erases data modules, so the region is clamped to what the worst
+       Reed-Solomon block can still correct at this EC level. Stitch erases
+       nothing and keeps the full range. */
+    const n =
+      mode === "inlay"
+        ? logoRegionModules(m.size, scale, maxSafeInlayN(m, ec))
+        : logoRegionModules(m.size, scale);
     const res = mode === "stitch" ? 3 : 1;
 
     logoToGrid(logoUrl, n, threshold, bg, edge, {
@@ -96,7 +112,7 @@ export function useLogoGrid(
             warning: "Couldn't read that image file — try a different PNG or SVG.",
           });
       });
-  }, [logo, matrix, missing, invalid, scale, threshold, edge, bg, mode, brightness, contrast, fade]);
+  }, [logo, matrix, missing, invalid, scale, threshold, edge, bg, mode, ec, brightness, contrast, fade]);
 
   if (missing) return IDLE;
   if (invalid) return INVALID_FORMAT;

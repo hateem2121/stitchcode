@@ -13,6 +13,7 @@ import {
   renderSVG,
 } from "../lib/qr";
 import { toRenderOptions, type StyleState } from "../lib/style";
+import { INLAY_AREA_SAFE, INLAY_AREA_WARN } from "../lib/qr";
 import { IndustrialCard, PassFail, Pill, SpecCell, Tele, useToast } from "./ui";
 
 const SUBSTRATES = [
@@ -40,6 +41,7 @@ export function PreviewPanel({
   logoGrid,
   logoN,
   onAutoFix,
+  validationErrors,
 }: {
   payload: string;
   matrix: QRMatrix | null;
@@ -47,7 +49,10 @@ export function PreviewPanel({
   filenameBase: string;
   logoGrid: Uint8Array | null;
   logoN: number;
-  /** applies safer picture settings when the decode test fails */  onAutoFix?: () => void;
+  /** blocking problems with the current payload (already EC-aware) */
+  validationErrors?: string[];
+  /** applies safer picture settings when the decode test fails */
+  onAutoFix?: () => void;
 }) {
   const toast = useToast();
   const [substrate, setSubstrate] = useState<SubstrateId>("white");
@@ -203,13 +208,13 @@ export function PreviewPanel({
           pass: true,
         });
       } else {
-        const okLogo = style.ec === "H" && area <= 0.25;
+        const okLogo = style.ec === "H" && area <= INLAY_AREA_SAFE;
         list.push({
           label: "Your picture",
           detail: okLogo
             ? logoN > 0
               ? `It uses ${areaPct}% of the code${
-                  area > 0.2 ? " — getting big, but still fine" : " — a comfy, safe size"
+                  area > INLAY_AREA_WARN ? " — getting big, but still fine" : " — a comfy, safe size"
                 }`
               : "Adding your picture…"
             : style.ec !== "H"
@@ -378,11 +383,21 @@ export function PreviewPanel({
           ) : (
             <div className="flex aspect-square w-full max-w-[300px] flex-col items-center justify-center gap-3 rounded-[10px] border-[1.5px] border-dashed border-ink/30 bg-surface/70 text-center backdrop-blur-[1px]">
               <ScanLine size={28} className="text-accent2" />
-              <p className="px-8 text-[13px] font-bold text-ink-dim">
-                {payload
-                  ? "That's too much to fit! Shorten what you're sharing, or turn the Safety level down a little."
-                  : "Fill in the form and your code appears here instantly."}
-              </p>
+              {validationErrors && validationErrors.length > 0 ? (
+                <div className="flex flex-col items-center gap-1 px-8" role="alert">
+                  {validationErrors.slice(0, 2).map((e) => (
+                    <p key={e} className="text-[13px] font-bold text-ink-dim">
+                      {e}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="px-8 text-[13px] font-bold text-ink-dim">
+                  {payload
+                    ? "That's too much to fit! Shorten what you're sharing, or turn the Safety level down a little."
+                    : "Fill in the form and your code appears here instantly."}
+                </p>
+              )}
             </div>
           )}
         </div>

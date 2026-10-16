@@ -42,20 +42,18 @@ export interface QRRenderOptions {
 /**
  * Width (in modules) of the logo region for a given fraction of the code.
  *
- * The slider runs the full 10–100% range for both techniques — there is no
- * hard clamp. Scannability is policed by live feedback instead: the
- * "% replaced" readout, the scan-safety checks, and the real decode test all
- * flag an inlay that erases more data than level H can restore. Regions that
- * aren't full-bleed are nudged to an odd width so they sit dead-centre.
- * 
- * IMPORTANT: Logo region is capped to avoid touching finder patterns.
- * Finders are 7x7 with 1-module separator = 9x9 total from each corner.
- * We keep at least 2 modules clearance from finder regions.
+ * The slider runs the full 10–100% range for both techniques. For inlay the
+ * caller passes `safetyMax` from maxSafeInlayN() — the largest region whose
+ * worst Reed-Solomon block stays inside its correction budget at the selected
+ * EC level — so an inlay can never erase more than the code can restore.
+ * Stitch mode erases nothing and needs no cap. Regions are nudged to an odd
+ * width so they sit dead-centre.
  */
-export function logoRegionModules(codeSize: number, scale: number): number {
-  // Maximum safe size: stay clear of finder patterns (8 modules from edges)
-  const maxSafeSize = Math.max(5, codeSize - 16); // 8 modules padding on each side
-  const n = Math.max(5, Math.min(Math.round(codeSize * scale), maxSafeSize, codeSize));
+export function logoRegionModules(codeSize: number, scale: number, safetyMax?: number): number {
+  // Hard ceiling: stay clear of the finder + separator areas (8 modules)
+  const maxSafeSize = Math.max(5, codeSize - 16);
+  let n = Math.max(5, Math.min(Math.round(codeSize * scale), maxSafeSize));
+  if (safetyMax !== undefined) n = Math.min(n, Math.max(5, safetyMax));
   return n >= codeSize ? n : n % 2 === 0 ? n + 1 : n;
 }
 
@@ -209,9 +207,9 @@ export const EC_INFO: Record<
   { label: string; recovery: string; capacity: string; pct: number }
 > = {
   L: { label: "Low", recovery: "≈ 7% damage", capacity: "100% capacity", pct: 100 },
-  M: { label: "Medium", recovery: "≈ 15% damage", capacity: "≈ 86% capacity", pct: 86 },
-  Q: { label: "High", recovery: "≈ 25% damage", capacity: "≈ 66% capacity", pct: 66 },
-  H: { label: "Max", recovery: "≈ 30% damage", capacity: "≈ 56% capacity", pct: 56 },
+  M: { label: "Medium", recovery: "≈ 15% damage", capacity: "≈ 79% capacity", pct: 79 },
+  Q: { label: "High", recovery: "≈ 25% damage", capacity: "≈ 58% capacity", pct: 58 },
+  H: { label: "Max", recovery: "≈ 30% damage", capacity: "≈ 43% capacity", pct: 43 },
 };
 
 /* ------------------------------------------------------------------ */
@@ -247,9 +245,13 @@ export function createMatrix(text: string, ec: ECLevel): QRMatrix {
   };
 }
 
-export function byteLength(text: string): number {
-  return new TextEncoder().encode(text).length;
-}
+export const byteLength = (text: string): number => new TextEncoder().encode(text).length;
+
+/** Advisory inlay-area thresholds (display guidance only — the hard limit is
+ *  the per-Reed-Solomon-block gate in qrSafety.ts). Shared so the style panel
+ *  readout and the scan-safety report can never disagree. */
+export const INLAY_AREA_SAFE = 0.25;
+export const INLAY_AREA_WARN = 0.2;
 
 /* ------------------------------------------------------------------ */
 /* Structure maps (finder / alignment / timing)                        */
@@ -360,8 +362,14 @@ function inFormatRegion(x: number, y: number, size: number): boolean {
   );
 }
 
-/** Functional patterns — always preserved intact, rendered solid. */
-function isFunctional(x: number, y: number, size: number, centers: Array<[number, number]>): boolean {
+/** Functional patterns — always preserved intact, rendered solid.
+ * Exported for the per-block logo safety gate (qrSafety.ts). */
+export function isFunctional(
+  x: number,
+  y: number,
+  size: number,
+  centers: Array<[number, number]>,
+): boolean {
   return (
     inFinderRegion(x, y, size) ||
     inAlignmentRegion(x, y, centers) ||

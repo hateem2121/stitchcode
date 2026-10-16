@@ -11,7 +11,7 @@ import {
   type ThemeId,
 } from "./lib/themes";
 import type { QRType, FormState } from "./lib/payloads";
-import { DEFAULT_FORMS, buildPayload, summarize } from "./lib/payloads";
+import { DEFAULT_FORMS, buildPayload, summarize, validate } from "./lib/payloads";
 import { createMatrix, renderSVG, logoToGrid, logoRegionModules, type QRMatrix, luminance } from "./lib/qr";
 import { SAMPLE_LOGO_URL } from "./lib/sample";
 import { ToastProvider, Reveal, Pill, Tele, Tip, Decode, useToast } from "./components/ui";
@@ -560,6 +560,14 @@ function Workbench() {
 
   const payload = useMemo(() => buildPayload(type, forms), [type, forms]);
 
+  /* blocking validation problems, checked against the SELECTED EC level so
+     over-capacity payloads surface here instead of silently blanking the
+     preview */
+  const validationErrors = useMemo(
+    () => (payload ? validate(type, forms, style.ec) : []),
+    [payload, type, forms, style.ec],
+  );
+
   const matrix: QRMatrix | null = useMemo(() => {
     if (!payload) return null;
     try {
@@ -579,6 +587,7 @@ function Workbench() {
       edge: style.logoEdge,
       bg: style.bg,
       mode: style.logoMode,
+      ec: style.ec,
       brightness: style.logoBrightness,
       contrast: style.logoContrast,
       fade: style.logoFade,
@@ -728,6 +737,7 @@ function Workbench() {
             filenameBase={filenameBase}
             logoGrid={logoGrid}
             logoN={logoN}
+            validationErrors={validationErrors}
             onAutoFix={autoFix}
           />
         </Reveal>

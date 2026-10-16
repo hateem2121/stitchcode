@@ -106,13 +106,13 @@ describe("payloads.ts", () => {
       expect(result).toBe("mailto:support@stitchcode.com?subject=Help%20Needed&body=Please%20check%20this.");
     });
 
-    it("should build SMS payload", () => {
+    it("should build SMS payload (raw message, de-facto SMSTO convention)", () => {
       const f: FormState = {
         ...baseForm,
         sms: { number: "+1 (555) 123-4567", message: "Meeting at 5" },
       };
       const result = buildPayload("sms", f);
-      expect(result).toBe("SMSTO:+15551234567:Meeting%20at%205");
+      expect(result).toBe("SMSTO:+15551234567:Meeting at 5");
     });
 
     it("should build Phone payload", () => {
@@ -128,10 +128,29 @@ describe("payloads.ts", () => {
       expect(validate("url", { ...baseForm, url: "" })).toEqual(["Enter a destination URL"]);
     });
 
-    it("should validate invalid URL", () => {
-      expect(validate("url", { ...baseForm, url: "not-a-valid-url" })).toEqual([
+    it("should validate URL with spaces as invalid", () => {
+      expect(validate("url", { ...baseForm, url: "not a valid url" })).toEqual([
         "That doesn't parse as a valid URL",
       ]);
+    });
+
+    it("should reject non-http schemes", () => {
+      expect(validate("url", { ...baseForm, url: "javascript:alert(1)" })).toEqual([
+        "URLs start with http:// or https://",
+      ]);
+    });
+
+    it("should accept localhost and single-label hosts", () => {
+      expect(validate("url", { ...baseForm, url: "http://localhost:3000" })).toEqual([]);
+      expect(validate("url", { ...baseForm, url: "http://intranet/printqueue" })).toEqual([]);
+    });
+
+    it("checks capacity against the SELECTED EC level", () => {
+      // 1280 bytes: fits at L (2953) but exceeds H (1273)
+      const long = `https://example.com/${"a".repeat(1260)}`;
+      expect(validate("url", { ...baseForm, url: long }, "L")).toEqual([]);
+      const issues = validate("url", { ...baseForm, url: long }, "H");
+      expect(issues[0]).toContain("H level's maximum capacity");
     });
 
     it("should validate valid URL", () => {
