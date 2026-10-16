@@ -66,6 +66,33 @@ if (typeof window !== "undefined" && !window.crypto?.subtle) {
   });
 }
 
+// jsdom 30 does not expose an ImageData constructor global.
+if (typeof window !== "undefined" && typeof window.ImageData === "undefined") {
+  class PolyfillImageData {
+    data: Uint8ClampedArray;
+    width: number;
+    height: number;
+    constructor(
+      input: Uint8ClampedArray | number,
+      widthOrHeight?: number,
+      maybeHeight?: number,
+    ) {
+      if (typeof input === "number") {
+        this.width = input;
+        this.height = widthOrHeight as number;
+        this.data = new Uint8ClampedArray(this.width * this.height * 4);
+      } else {
+        this.width = widthOrHeight as number;
+        this.height = maybeHeight ?? input.length / (4 * this.width);
+        this.data = input;
+      }
+    }
+  }
+  const Ctor = PolyfillImageData as unknown as typeof ImageData;
+  Object.defineProperty(window, "ImageData", { value: Ctor, configurable: true });
+  Object.defineProperty(globalThis, "ImageData", { value: Ctor, configurable: true });
+}
+
 // Mock HTMLCanvasElement context for rendering logic in jsdom
 if (typeof HTMLCanvasElement !== "undefined") {
   const originalGetContext = HTMLCanvasElement.prototype.getContext;

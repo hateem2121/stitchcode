@@ -1,4 +1,4 @@
-import { create as createQRCode } from "qrcode";
+import { qrcodegen } from "./qrcodegen/qrcodegen";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -218,10 +218,27 @@ export const EC_INFO: Record<
 /* Matrix creation                                                     */
 /* ------------------------------------------------------------------ */
 
+const EC_TO_ECC: Record<ECLevel, qrcodegen.QrCode.Ecc> = {
+  L: qrcodegen.QrCode.Ecc.LOW,
+  M: qrcodegen.QrCode.Ecc.MEDIUM,
+  Q: qrcodegen.QrCode.Ecc.QUARTILE,
+  H: qrcodegen.QrCode.Ecc.HIGH,
+};
+
+/**
+ * Encode with the vendored Nayuki qrcodegen reference implementation
+ * (ISO 18004-conformant, actively maintained). Also exposes the Reed-Solomon
+ * block structure needed by the logo safety gate.
+ */
 export function createMatrix(text: string, ec: ECLevel): QRMatrix {
-  const qr = createQRCode(text, { errorCorrectionLevel: ec });
-  const size = qr.modules.size;
-  const data = qr.modules.data;
+  const qr = qrcodegen.QrCode.encodeText(text, EC_TO_ECC[ec]);
+  const size = qr.size;
+  const data = new Uint8Array(size * size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (qr.getModule(x, y)) data[y * size + x] = 1;
+    }
+  }
   return {
     version: qr.version,
     size,
