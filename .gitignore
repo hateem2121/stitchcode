@@ -4,7 +4,15 @@ node_modules/
 .pnp.js
 
 # Production / Build output
+dist/
 dist-electron/
+
+# Internal tooling / planning artifacts
+.superpowers/
+.zcode/
+
+# Private notes — never commit
+*Master Prompt*
 
 # Environment files
 .env
@@ -33,3 +41,4 @@ lerna-debug.log*
 # OS metadata
 .DS_Store
 Thumbs.db
+.gstack/

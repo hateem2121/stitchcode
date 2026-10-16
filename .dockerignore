@@ -1,0 +1,28 @@
+# Version control and internals
+.git
+.gitignore
+.github
+.gstack
+.superpowers
+.zcode
+
+# Dependencies (installed inside the image)
+node_modules
+
+# Build outputs (built inside the image; dist-electron is desktop-only)
+dist
+dist-electron
+
+# Local artifacts
+*.log
+.DS_Store
+*Master Prompt*
+
+# Docs not needed for the image build
+wiki
+docs
+*.md
+!README.md
+
+# Electron sources are not part of the web image
+electron
