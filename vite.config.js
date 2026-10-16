@@ -3,10 +3,17 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react({
+      // React Compiler v1 — automatic memoisation (keeps Babel in the
+      // pipeline just for this plugin; Oxc handles the rest).
+      babel: { plugins: [["babel-plugin-react-compiler", {}]] },
+    }),
+    tailwindcss(),
+  ],
   base: "./",
   server: {
-    host: "0.0.0.0",
+    // localhost only — use `vite --host` deliberately if you need LAN access
     port: 3000,
     strictPort: true,
     hmr: {
@@ -19,23 +26,16 @@ export default defineConfig({
         index: "index.html",
       },
       output: {
-        manualChunks(id) {
-          if (id.includes("node_modules/react") || id.includes("node_modules/react-dom")) {
-            return "vendor-react";
-          }
-          if (id.includes("node_modules/motion")) {
-            return "vendor-motion";
-          }
-          if (
-            id.includes("node_modules/@radix-ui") ||
-            id.includes("node_modules/lucide-react") ||
-            id.includes("node_modules/@dnd-kit")
-          ) {
-            return "vendor-ui";
-          }
-          if (id.includes("node_modules/qrcode") || id.includes("node_modules/dompurify")) {
-            return "vendor-qr";
-          }
+        // Whole-path-segment matching (the old substring `includes` also
+        // captured unrelated packages). jsQR group disappears with the
+        // barcode-detector swap.
+        advancedChunks: {
+          groups: [
+            { name: "vendor-react", test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+            { name: "vendor-motion", test: /node_modules[\\/](motion|framer-motion)[\\/]/ },
+            { name: "vendor-ui", test: /node_modules[\\/](@radix-ui|lucide-react|@dnd-kit)[\\/]/ },
+            { name: "vendor-qr", test: /node_modules[\\/](qrcode|dompurify|barcode-detector|zxing-wasm)[\\/]/ },
+          ],
         },
       },
     },
