@@ -12,7 +12,7 @@ import {
   renderCanvas,
   renderSVG,
 } from "../lib/qr";
-import { toRenderOptions, type StyleState } from "./StylePanel";
+import { toRenderOptions, type StyleState } from "../lib/style";
 import { IndustrialCard, PassFail, Pill, SpecCell, Tele, useToast } from "./ui";
 
 const SUBSTRATES = [
@@ -47,13 +47,20 @@ export function PreviewPanel({
   filenameBase: string;
   logoGrid: Uint8Array | null;
   logoN: number;
-  /** applies safer picture settings when the decode test fails */
-  onAutoFix?: () => void;
+  /** applies safer picture settings when the decode test fails */  onAutoFix?: () => void;
 }) {
   const toast = useToast();
   const [substrate, setSubstrate] = useState<SubstrateId>("white");
   const [sheet, setSheet] = useState(false);
-  const [decode, setDecode] = useState<{ status: "testing" | "pass" | "fail"; ms?: number } | null>(null);
+  /* Real decode test state: results are tagged with the epoch (input set)
+     they were produced for; "testing" is derived by comparing epochs, so no
+     state needs to be written when a new scan starts. */
+  const [decodeEpoch, setDecodeEpoch] = useState(0);
+  const [decodeRes, setDecodeRes] = useState<{
+    epoch: number;
+    status: "pass" | "fail" | "error";
+    ms?: number;
+  } | null>(null);
   const decodeReq = useRef(0);
 
   /* print-shop loupe: magnify the squares under the cursor */
@@ -80,36 +87,59 @@ export function PreviewPanel({
   /* style state → renderer options (merged-logo grid included) */
   const renderOpts = (bg: string) => toRenderOptions(style, logoGrid, logoN, bg);
 
-  /* Real decode test: render the exact export to a canvas and scan it back
-     with jsQR, confirming the payload round-trips. Debounced + guarded. */
+  /* Real decode test: render the exact export to a canvas and scan it back,
+     confirming the payload round-trips. Debounced + request-id guarded. */
   useEffect(() => {
-    if (!matrix) {
-      setDecode(null);
-      return;
-    }
-    setDecode({ status: "testing" });
+    if (!matrix) return;
     const id = ++decodeReq.current;
+    const epoch = decodeEpoch;
     const t = window.setTimeout(async () => {
       try {
         const canvas = await renderCanvas(matrix, renderOpts(style.bg), 768);
         const ctx = canvas.getContext("2d");
-        if (!ctx) return;
+        if (!ctx) {
+          if (decodeReq.current === id) setDecodeRes({ epoch, status: "error" });
+          return;
+        }
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const t0 = performance.now();
         const decoded = await decodeQR(imageData);
         if (decodeReq.current !== id) return;
-        setDecode(
+        setDecodeRes(
           decoded === payload
-            ? { status: "pass", ms: Math.max(1, Math.round(performance.now() - t0)) }
-            : { status: "fail" },
+            ? { epoch, status: "pass", ms: Math.max(1, Math.round(performance.now() - t0)) }
+            : { epoch, status: "fail" },
         );
       } catch {
-        if (decodeReq.current === id) setDecode({ status: "fail" });
+        if (decodeReq.current === id) setDecodeRes({ epoch, status: "error" });
       }
     }, 450);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matrix, style, logoGrid, logoN, payload]);
+
+  /* Bump the epoch during render whenever the scanned inputs change, so the
+     previous result is derived stale immediately (no effect round-trip). */
+  const [prevScanInputs, setPrevScanInputs] = useState({ matrix, style, logoGrid, logoN, payload });
+  const scanInputsChanged =
+    prevScanInputs.matrix !== matrix ||
+    prevScanInputs.style !== style ||
+    prevScanInputs.logoGrid !== logoGrid ||
+    prevScanInputs.logoN !== logoN ||
+    prevScanInputs.payload !== payload;
+  if (scanInputsChanged) {
+    setPrevScanInputs({ matrix, style, logoGrid, logoN, payload });
+    setDecodeEpoch((e) => e + 1);
+  }
+  const liveEpoch = scanInputsChanged ? decodeEpoch + 1 : decodeEpoch;
+
+  /* derived: pending while the newest epoch has no result */
+  const decode =
+    !matrix || !decodeRes || decodeRes.epoch !== liveEpoch
+      ? matrix
+        ? { status: "testing" as const }
+        : null
+      : { status: decodeRes.status, ms: decodeRes.ms };
 
   /* transparent-bg render so the code sits ON the substrate */
   const printedSVG = useMemo(
@@ -408,7 +438,7 @@ export function PreviewPanel({
                     <span className="pulse-dot h-2 w-2 shrink-0 rounded-full bg-warn" />
                   ) : (
                     <PassFail pass={decode.status === "pass"}>
-                      {decode.status === "pass" ? "pass" : "risk"}
+                      {decode.status === "pass" ? "pass" : decode.status === "error" ? "n/a" : "risk"}
                     </PassFail>
                   )}
                   <div className="min-w-0">
@@ -419,8 +449,10 @@ export function PreviewPanel({
                       {decode.status === "testing"
                         ? "Scanning your code…"
                         : decode.status === "pass"
-                          ? "It works! A phone camera can read it ✓"
-                          : "It won't scan — try more Fade, or make the picture smaller"}
+                          ? `It works! A phone camera can read it ✓${decode.ms ? ` (${decode.ms}ms)` : ""}`
+                          : decode.status === "error"
+                            ? "Couldn't run the scan test in this browser"
+                            : "It won't scan — try more Fade, or make the picture smaller"}
                     </p>
                   </div>
                   {decode.status === "fail" && onAutoFix && (

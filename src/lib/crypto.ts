@@ -128,7 +128,7 @@ export async function decrypt(encryptedBase64: string, password: string): Promis
     // Use constant-time operations to avoid timing side-channels
     const dummy = new Uint8Array(ciphertext.length);
     constantTimeEqual(dummy, ciphertext);
-    throw new Error("Decryption failed: authentication tag mismatch");
+    throw new Error("Decryption failed: authentication tag mismatch", { cause: error });
   }
 }
 

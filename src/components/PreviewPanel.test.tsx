@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PreviewPanel } from "./PreviewPanel";
-import { DEFAULT_STYLE } from "./StylePanel";
+import { DEFAULT_STYLE } from "../lib/style";
 import { createMatrix } from "../lib/qr";
 import { ToastProvider } from "./ui";
 

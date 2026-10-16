@@ -6,13 +6,12 @@ import {
   useId,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import * as RadixSelect from "@radix-ui/react-select";
 import * as RadixTooltip from "@radix-ui/react-tooltip";
-import { Check, ChevronDown, Info, X, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Check, ChevronDown, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { isValidHex } from "../lib/qr";
 
 /* ------------------------------------------------------------------ */
@@ -229,17 +228,16 @@ export function Decode({
   delay?: number;
   className?: string;
 }) {
-  const reduced =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const [out, setOut] = useState(() => (reduced ? text : scramble(text)));
+  const [reduced] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+  const [out, setOut] = useState(() => (reduced ? "" : scramble(text)));
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    if (reduced) {
-      setOut(text);
-      return;
-    }
+    if (reduced) return;
     const el = ref.current;
     if (!el) return;
     let raf = 0;
@@ -277,7 +275,7 @@ export function Decode({
 
   return (
     <span ref={ref} className={className} aria-label={text}>
-      <span aria-hidden="true">{out}</span>
+      <span aria-hidden="true">{reduced ? text : out}</span>
     </span>
   );
 }
@@ -415,7 +413,12 @@ export function ColorField({
   onChange: (v: string) => void;
 }) {
   const [text, setText] = useState(value);
-  useEffect(() => setText(value), [value]);
+  // Mirror external value changes during render (no effect round-trip).
+  const [prevValue, setPrevValue] = useState(value);
+  if (prevValue !== value) {
+    setPrevValue(value);
+    setText(value);
+  }
   return (
     <div>
       <span className="mb-1.5 block text-[12px] font-bold text-ink-dim">{label}</span>

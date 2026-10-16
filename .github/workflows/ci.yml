@@ -1,6 +1,7 @@
 # ------------------------------------------------------------------
 # CI — the quality robot.
-# Every push and pull request gets: typecheck → build → saved copy.
+# Every push and pull request gets: lint → typecheck → test → build,
+# plus a dependency vulnerability scan.
 # ------------------------------------------------------------------
 name: CI
 
@@ -13,20 +14,48 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    name: Typecheck & build (Node ${{ matrix.node }})
+  lint:
+    name: Lint & typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install the parts (exact versions from the lockfile)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck (app + electron main process)
+        run: npm run typecheck
+
+  build:
+    name: Test & build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         node: [22, 24] # 22 = maintenance LTS · 24 = active LTS (2026)
     steps:
       - name: Check out the code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -34,19 +63,34 @@ jobs:
       - name: Install the parts (exact versions from the lockfile)
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Run unit & integration tests
-        run: npm run test:run
+      - name: Run unit & integration tests (with coverage)
+        run: npm run test:coverage
 
       - name: Build the studio
         run: npm run build
 
       - name: Keep a copy of the build (main branch only)
         if: github.ref == 'refs/heads/main' && matrix.node == 24
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dist
           path: dist
           retention-days: 14
+
+  osv:
+    name: Dependency vulnerability scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Non-blocking until the dependency cleanup lands (jsqr/qrcode swaps);
+    # findings are visible in the job log and will gate CI after Phase 2.
+    continue-on-error: true
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Scan lockfile for known vulnerabilities
+        uses: google/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        with:
+          scan-args: |-
+            -r
+            ./

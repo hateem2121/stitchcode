@@ -16,7 +16,8 @@ import { createMatrix, renderSVG, logoToGrid, logoRegionModules, type QRMatrix, 
 import { SAMPLE_LOGO_URL } from "./lib/sample";
 import { ToastProvider, Reveal, Pill, Tele, Tip, Decode, useToast } from "./components/ui";
 import { ContentForms } from "./components/ContentForms";
-import { StylePanel, DEFAULT_STYLE, toRenderOptions, type StyleState } from "./components/StylePanel";
+import { StylePanel } from "./components/StylePanel";
+import { DEFAULT_STYLE, toRenderOptions, type StyleState } from "./lib/style";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { useLogoGrid } from "./lib/useLogoGrid";
 import { Anatomy, Checklist, FAQ } from "./components/Sections";
@@ -292,12 +293,12 @@ function Header({ theme, onTheme }: { theme: ThemeId; onTheme: (t: ThemeId) => v
 /* Opener — characteristic of the subject                              */
 /* ------------------------------------------------------------------ */
 function Stat({ n, label, delay }: { n: number; label: string; delay: number }) {
+  const [reduced] = useState(
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
   const [v, setV] = useState(0);
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setV(n);
-      return;
-    }
+    if (reduced) return;
     const controls = animate(0, n, {
       duration: 0.8,
       delay,
@@ -305,11 +306,11 @@ function Stat({ n, label, delay }: { n: number; label: string; delay: number }) 
       onUpdate: (x) => setV(Math.round(x)),
     });
     return () => controls.stop();
-  }, [n, delay]);
+  }, [n, delay, reduced]);
   return (
     <div className="rounded-[12px] border-[1.5px] border-ink bg-surface px-4 py-3 shadow-brutal-sm">
       <span className="block font-display text-[26px] font-black leading-none text-accent2">
-        {v}
+        {reduced ? n : v}
       </span>
       <span className="mt-1 block font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-ink-muted">
         {label}
@@ -334,9 +335,16 @@ const SPECIMEN_PRESETS = [
  */
 function useStitchedSVG(payload: string, scale: number, stitched: boolean, px = 420): string {
   const [svg, setSvg] = useState("");
+  // Reset during render (not in the effect) when any input changes, so the
+  // stale specimen never flashes while the new one rasterises.
+  const key = `${payload}|${scale}|${stitched}|${px}`;
+  const [prevKey, setPrevKey] = useState(key);
+  if (prevKey !== key) {
+    setPrevKey(key);
+    setSvg("");
+  }
   useEffect(() => {
     let live = true;
-    setSvg("");
     (async () => {
       try {
         const m = createMatrix(payload, "H");

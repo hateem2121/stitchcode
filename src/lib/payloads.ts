@@ -96,9 +96,11 @@ export function normalizeUrl(raw: string): string {
 /**
  * Sanitize text payload to prevent potential XSS when rendered in SVG.
  * While the SVG renderer escapes HTML entities, this provides defense-in-depth.
+ * Keeps \n \r \t — multi-line text payloads are legitimate QR content.
  */
 export function sanitizeText(text: string): string {
-  return text.replace(/[\u0000-\u001F\u007F]/g, "");
+  // eslint-disable-next-line no-control-regex -- stripping control characters is the purpose of this sanitizer
+  return text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
 }
 
 /* ------------------------- builders ------------------------------- */

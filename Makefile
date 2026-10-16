@@ -5,11 +5,11 @@
 #   make build        production build (portable, relative paths)
 #   make serve-dist   open the built studio in the browser
 #   make wiki-init    publish wiki/*.md to the GitHub wiki
-#   make release      tag v1.0.0 and push → robots build Release + Docker
+#   make release      tag the current package.json version and push
 #   make docker-run   run the published image on localhost:8080
 # ------------------------------------------------------------------
 SHELL := /bin/bash
-VERSION ?= 1.0.0
+VERSION ?= $(shell node -p "require('./package.json').version")
 
 .PHONY: dev build serve-dist wiki-init release docker-run check
 
@@ -24,7 +24,9 @@ serve-dist: build
 	@command -v npx >/dev/null && npx --yes serve -l 4173 dist || python3 -m http.server 4173 --directory dist
 
 check:
+	npm run lint
 	npm run typecheck
+	npm run test:run
 	npm run build -- --base=./
 
 wiki-init:

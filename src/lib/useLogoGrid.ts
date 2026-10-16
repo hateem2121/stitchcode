@@ -24,17 +24,22 @@ export interface LogoGridParams {
 }
 
 const IDLE: LogoGridState = { grid: null, n: 0, res: 1, warning: null };
+const INVALID_FORMAT: LogoGridState = {
+  grid: null,
+  n: 0,
+  res: 1,
+  warning: "Invalid logo format — please use a valid image URL or data URI.",
+};
 
 /**
  * Rasterises the uploaded logo into a binary grid sized to the current code.
  * "Stitch" mode rasterises at 3× the module grid (sub-module halftone);
- * "inlay" works at module resolution. Re-runs whenever any input changes.
+ * "inlay" works at module resolution. Re-runs whenever any input changes —
+ * including a new logo image or a different matrix, with identical params.
  *
- * A monotonically increasing request id guards against out-of-order
- * resolutions: if a newer rasterisation is requested before an older one
- * finishes, the stale result is discarded.
- * 
- * Optimized to reduce re-renders by memoizing params object.
+ * Idle/invalid states are derived during render (stable module constants,
+ * guarded setState) so no effect is needed to clear them. A monotonically
+ * increasing request id discards out-of-order rasterisation results.
  */
 export function useLogoGrid(
   logo: string | null,
@@ -43,57 +48,33 @@ export function useLogoGrid(
 ): LogoGridState {
   const [state, setState] = useState<LogoGridState>(IDLE);
   const reqId = useRef(0);
-  // Cache previous params to avoid unnecessary re-runs
-  const prevParams = useRef<LogoGridParams | null>(null);
+  const { scale, threshold, edge, bg, mode, brightness, contrast, fade } = p;
+
+  const missing = !logo || !matrix;
+  const invalid = !!logo && !logo.startsWith("data:") && !logo.startsWith("http");
+
+  // Render-phase resets: guarded by stable references, so they settle immediately.
+  if (missing && state !== IDLE) setState(IDLE);
+  if (!missing && invalid && state !== INVALID_FORMAT) setState(INVALID_FORMAT);
 
   useEffect(() => {
+    if (missing || invalid) return;
+    const logoUrl: string = logo;
+    const m: QRMatrix = matrix;
     const id = ++reqId.current;
-    if (!logo || !matrix) {
-      setState(IDLE);
-      return;
-    }
-    
-    // Skip if params haven't changed (shallow comparison)
-    const pp = prevParams.current;
-    if (pp && 
-        pp.scale === p.scale && 
-        pp.threshold === p.threshold && 
-        pp.edge === p.edge && 
-        pp.bg === p.bg && 
-        pp.mode === p.mode && 
-        pp.brightness === p.brightness && 
-        pp.contrast === p.contrast && 
-        pp.fade === p.fade) {
-      return;
-    }
-    prevParams.current = { ...p };
-    
-    const n = logoRegionModules(matrix.size, p.scale);
-    const res = p.mode === "stitch" ? 3 : 1;
-    
-    // Validate logo URL format before processing
-    if (!logo.startsWith('data:') && !logo.startsWith('http')) {
-      setState({
-        ...IDLE,
-        warning: "Invalid logo format — please use a valid image URL or data URI.",
-      });
-      return;
-    }
-    
-    logoToGrid(logo, n, p.threshold, p.bg, p.edge, {
+    const n = logoRegionModules(m.size, scale);
+    const res = mode === "stitch" ? 3 : 1;
+
+    logoToGrid(logoUrl, n, threshold, bg, edge, {
       res,
-      brightness: p.brightness,
-      contrast: p.contrast,
-      fade: p.fade,
+      brightness,
+      contrast,
+      fade,
     })
       .then((grid) => {
         if (reqId.current !== id) return;
         const dark = gridDarkFraction(grid);
-        
-        // Calculate area percentage for better warnings
-        const area = (n * n) / (matrix.size * matrix.size);
-        const areaPct = Math.round(area * 100);
-        
+        const areaPct = Math.round((n * n) / (m.size * m.size) * 100);
         setState({
           grid,
           n,
@@ -101,9 +82,11 @@ export function useLogoGrid(
           warning:
             dark < 0.02
               ? "We can barely see your picture — it's almost white! Try a darker picture, or slide 'How dark' up."
-              : areaPct > 60 && p.mode === "stitch"
-              ? "Large picture — prints best at 5cm or larger for reliable scanning."
-              : null,
+              : mode === "inlay" && areaPct > 30
+                ? "Big carve-out — inlay erases modules, so keep it small or switch to Stitch mode."
+                : areaPct > 60
+                  ? "Large picture — prints best at 5cm or larger for reliable scanning."
+                  : null,
         });
       })
       .catch(() => {
@@ -113,7 +96,9 @@ export function useLogoGrid(
             warning: "Couldn't read that image file — try a different PNG or SVG.",
           });
       });
-  }, [logo, matrix, p.scale, p.threshold, p.edge, p.bg, p.mode, p.brightness, p.contrast, p.fade]);
+  }, [logo, matrix, missing, invalid, scale, threshold, edge, bg, mode, brightness, contrast, fade]);
 
+  if (missing) return IDLE;
+  if (invalid) return INVALID_FORMAT;
   return state;
 }
