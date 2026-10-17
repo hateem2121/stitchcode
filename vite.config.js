@@ -28,6 +28,24 @@ function serviceWorkerVersionPlugin() {
   };
 }
 
+/**
+ * The production index.html ships a strict CSP meta tag. In dev, Vite injects
+ * an inline HMR/react-refresh preamble that CSP would block — so during
+ * `vite` (serve mode only) this plugin swaps the meta tag for a relaxed one.
+ */
+function devCspPlugin() {
+  return {
+    name: "stitchcode-dev-csp",
+    apply: "serve",
+    transformIndexHtml(html) {
+      return html.replace(
+        /<meta http-equiv="Content-Security-Policy"[^>]*>/,
+        '<meta http-equiv="Content-Security-Policy" content="default-src \'self\'; script-src \'self\' \'unsafe-inline\' blob:; style-src \'self\' \'unsafe-inline\'; img-src \'self\' blob: data:; font-src \'self\'; connect-src \'self\' ws: http://localhost:* http://127.0.0.1:*; base-uri \'self\'; object-src \'none\';" />',
+      );
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     react({
@@ -36,6 +54,7 @@ export default defineConfig({
       babel: { plugins: [["babel-plugin-react-compiler", {}]] },
     }),
     tailwindcss(),
+    devCspPlugin(),
     serviceWorkerVersionPlugin(),
   ],
   base: "./",
