@@ -30,6 +30,9 @@ const CSP =
   "base-uri 'self'; " +
   "form-action 'self';";
 
+/**
+ * @param {string} url
+ */
 function isAppUrl(url) {
   if (DEV_URL) return url.startsWith(DEV_URL);
   return url.startsWith('file://');
@@ -39,8 +42,7 @@ function minimalMenu() {
   /* macOS needs a basic app menu for copy/paste/quit to behave; no View
      menu means no "Toggle Developer Tools" in packaged builds */
   const isMac = process.platform === 'darwin';
-  /** @type {import('electron').MenuItemConstructorOptions[]} */
-  const template = [
+  const template = /** @type {import('electron').MenuItemConstructorOptions[]} */ ([
     ...(isMac
       ? [
           {
@@ -65,7 +67,7 @@ function minimalMenu() {
         { role: 'selectAll' },
       ],
     },
-  ];
+  ]);
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
