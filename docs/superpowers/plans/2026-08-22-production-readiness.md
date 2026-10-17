@@ -1,3 +1,7 @@
+> **⚠️ Superseded (2026-10-17):** this plan's checkboxes were never ticked,
+> but the work landed (and was substantially exceeded) by the 1.3.0
+> production-readiness program — see CHANGELOG.md. Retained for history.
+
 # StitchCode Production Readiness Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

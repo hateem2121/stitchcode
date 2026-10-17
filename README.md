@@ -6,7 +6,7 @@ A friendly QR code studio that stitches your picture *into* the code — and
 checks that it really scans. No servers, no accounts, and nothing you type
 ever leaves the device.
 
-[![CI](https://img.shields.io/badge/CI-passing-19c37d?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=1c1c1a)](https://github.com/RUN-APPAREL/stitchcode/actions)
+[![CI](https://github.com/RUN-APPAREL/stitchcode/actions/workflows/ci.yml/badge.svg?style=for-the-badge)](https://github.com/RUN-APPAREL/stitchcode/actions/workflows/ci.yml)
 [![Pages](https://img.shields.io/badge/Pages-ready-16336f?style=for-the-badge&logo=githubpages&logoColor=white&labelColor=1c1c1a)](https://run-apparel.github.io/stitchcode/)
 [![Docker](https://img.shields.io/badge/Docker-image-073042?style=for-the-badge&logo=docker&logoColor=white&labelColor=1c1c1a)](https://github.com/RUN-APPAREL/stitchcode/pkgs/container/stitchcode)
 [![Licence](https://img.shields.io/badge/Licence-MIT-fe492a?style=for-the-badge&labelColor=1c1c1a)](./LICENSE)
@@ -63,7 +63,7 @@ cd stitchcode
 npm install
 
 # 3. start the studio
-npm run dev              # then open the link it prints (usually :5173)
+npm run dev              # then open the link it prints (usually :3000)
 ```
 
 > **On Windows without `make`?** Use the npm scripts directly — `npm run dev`,

@@ -1,86 +1,51 @@
 # 📦 Download StitchCode QR Studio
 
-## Latest Release: v1.2.3
+Get the latest version from the **Releases page** — filenames carry the
+version and platform, and every release ships a `checksums-sha256.txt` plus
+GitHub build-provenance attestations you can verify:
 
-### 🍎 macOS (Intel/Apple Silicon)
-- **Format**: DMG Installer / ZIP archive containing `.app` bundle
-- **Size**: ~132 MB (compressed)
-- **Downloads**:
-  - [StitchCode-1.2.3-arm64.dmg](https://github.com/RUN-APPAREL/stitchcode/releases/download/v1.2.3/StitchCode-1.2.3-arm64.dmg)
-  - [StitchCode-1.2.3-arm64-mac.zip](https://github.com/RUN-APPAREL/stitchcode/releases/download/v1.2.3/StitchCode-1.2.3-arm64-mac.zip)
+```bash
+gh attestation verify <downloaded-file> -R RUN-APPAREL/stitchcode
+```
 
-#### Installation Instructions:
-1. Download `StitchCode-1.2.3-arm64.dmg` (or `StitchCode-1.2.3-arm64-mac.zip`)
-2. Double-click to open
-3. Drag `StitchCode.app` to your Applications folder
-4. Right-click and select "Open" (first time only, to bypass Gatekeeper)
+➡️ **[Latest release](https://github.com/RUN-APPAREL/stitchcode/releases/latest)**
 
----
+### 🍎 macOS (Apple Silicon)
+- **Formats**: DMG installer and ZIP (both `arm64`)
+- **Install**: open the DMG → drag `StitchCode.app` to Applications →
+  right-click → **Open** the first time (the app is not yet notarized —
+  see [docs/RELEASE_SIGNING.md](./docs/RELEASE_SIGNING.md))
+- **Requires**: macOS 13 or later (Electron 44 platform floor)
 
 ### 🪟 Windows
-- **Format**: NSIS Installer (.exe)
-- **Architecture**: x64
-- **Download**: [StitchCode Setup 1.2.3.exe](https://github.com/RUN-APPAREL/stitchcode/releases/download/v1.2.3/StitchCode.Setup.1.2.3.exe)
-
-#### Installation Instructions:
-1. Download installer
-2. Double-click to run the installer
-3. Follow the installation wizard
-4. Launch from Start Menu or Desktop shortcut
-
----
+- **Format**: NSIS installer (`.exe`, x64)
+- **Install**: run the installer → follow the wizard
+- SmartScreen may warn on unsigned binaries: **More info → Run anyway**
+- **Requires**: Windows 10 or later
 
 ### 🐧 Linux
-Available formats:
-- **AppImage** - Universal package (recommended)
-- **DEB** - Debian/Ubuntu
-
-**Download links**:
-- [StitchCode-1.2.3.AppImage](https://github.com/RUN-APPAREL/stitchcode/releases/download/v1.2.3/StitchCode-1.2.3.AppImage)
-- [StitchCode_1.2.3_amd64.deb](https://github.com/RUN-APPAREL/stitchcode/releases/download/v1.2.3/stitchcode-qr-studio_1.2.3_amd64.deb)
-
-**Installation**:
-```bash
-# For AppImage (make executable first)
-chmod +x StitchCode.AppImage
-./StitchCode.AppImage
-
-# For DEB
-sudo dpkg -i StitchCode.deb
-
-# For RPM
-sudo rpm -i StitchCode.rpm
-```
+- **Formats**: AppImage (recommended) and `.deb` — no RPM target is built
+- **Install**:
+  ```bash
+  chmod +x StitchCode-*.AppImage && ./StitchCode-*.AppImage
+  sudo apt install ./stitchcode-qr-studio_*_amd64.deb
+  ```
 
 ---
 
 ## 🛠️ Build from Source
 
-### Prerequisites
-- Node.js 22+ 
-- npm 10+
+Requires Node.js 22+ (`package.json` engines; `.nvmrc` pins 24).
 
-### Steps
 ```bash
-# Clone repository
 git clone https://github.com/RUN-APPAREL/stitchcode.git
 cd stitchcode
-
-# Install dependencies
-npm install
-
-# Build for your platform
-npm run electron:build:mac    # macOS
-npm run electron:build:win    # Windows
-npm run electron:build:linux  # Linux
-npm run electron:build        # All platforms
+npm ci
+npm run electron:build:mac    # or :win / :linux
 ```
 
-### Output Location
-Built applications are located in the `dist-electron/` directory:
-- macOS: `StitchCode-1.2.3-arm64.dmg`, `StitchCode-1.2.3-arm64-mac.zip`
-- Windows: `StitchCode Setup 1.2.3.exe`
-- Linux: `StitchCode-1.2.3.AppImage`, `stitchcode-qr-studio_1.2.3_amd64.deb`
+Output lands in `dist-electron/` — macOS `*.dmg` + `*-mac.zip`,
+Windows `*.exe`, Linux `*.AppImage` + `*.deb`.
 
 ---
 
@@ -99,53 +64,51 @@ The web app works completely offline after the first load!
 
 ## ✅ Security Features
 
-- **Encrypted Storage**: All sensitive data (WiFi passwords, contacts) encrypted with AES-256-GCM
-- **Hardened CSP**: Strict Content Security Policy prevents XSS attacks
-- **Payload Validation**: ISO/IEC 18004:2015 compliant QR capacity limits
-- **Offline-First**: Works completely offline after initial load
-- **No Tracking**: Zero analytics, no accounts, no data collection
+- **Local-only by design**: no server, no accounts, no telemetry — payloads
+  (including Wi-Fi passwords) never leave the device
+- **Encrypted history**: AES-256-GCM vault in IndexedDB; obfuscated at rest by
+  default, genuinely encrypted when you set a passphrase (see SECURITY.md)
+- **Hardened CSP** in both the web build and the Electron wrapper
+- **Spec-safe exports**: quiet-zone and per-block error-correction gates on
+  every logo merge, with a real decoder verifying the rendered output
 
-> **Note**: Current builds are not code-signed. For production use in enterprise environments, code signing is recommended to avoid security warnings.
+> **Note**: Desktop builds are **not code-signed** yet — macOS Gatekeeper and
+> Windows SmartScreen will warn. Upgrade paths (Apple Developer ID
+> notarization, SignPath Foundation signing for OSS) are documented in
+> [docs/RELEASE_SIGNING.md](./docs/RELEASE_SIGNING.md).
 
 ---
 
 ## 💻 System Requirements
 
-### macOS
-- macOS 10.13 (High Sierra) or later
-- Intel or Apple Silicon processor
-- 200 MB free disk space
-
-### Windows
-- Windows 10 or later
-- x64 architecture
-- 200 MB free disk space
-
-### Linux
-- Modern 64-bit distribution
-- glibc 2.28+
-- 200 MB free disk space
+| Platform | Minimum |
+|---|---|
+| macOS | macOS 13+ (Electron 44), Apple Silicon or Intel |
+| Windows | Windows 10+, x64 |
+| Linux | 64-bit distro, glibc 2.28+ |
+| All | ~200 MB free disk space |
 
 ---
 
 ## 🔧 Troubleshooting
 
 ### macOS: "App can't be opened"
-Right-click the app → Open → Click "Open" in the dialog
+Right-click the app → Open → Click "Open" in the dialog (or
+`xattr -dr com.apple.quarantine StitchCode.app`).
 
 ### Windows: SmartScreen warning
-Click "More info" → "Run anyway"
+Click "More info" → "Run anyway".
 
 ### Linux: AppImage won't execute
 ```bash
-chmod +x StitchCode.AppImage
-./StitchCode.AppImage
+chmod +x StitchCode-*.AppImage
+./StitchCode-*.AppImage
 ```
 
 ### General Issues
 - Make sure you have Node.js 22+ installed
 - Clear npm cache: `npm cache clean --force`
-- Reinstall dependencies: `rm -rf node_modules && npm install`
+- Reinstall dependencies: `rm -rf node_modules && npm ci`
 
 ---
 

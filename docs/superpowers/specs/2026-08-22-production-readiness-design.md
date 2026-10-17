@@ -1,3 +1,8 @@
+> **⚠️ Superseded (2026-10-17):** as-written this spec described features
+> that never existed (a "Crypto/UPI" payload type, 50-item pruning, legacy
+> migration) and omitted what actually shipped. The 1.3.0 CHANGELOG entry is
+> the accurate record. Retained for history.
+
 # Production Readiness Design Specification
 
 **Document Date:** 2026-08-22  

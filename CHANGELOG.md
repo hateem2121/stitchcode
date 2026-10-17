@@ -9,6 +9,82 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 > "Changed" means things that work differently now, and "Security" means
 > safety repairs.
 
+## [1.3.0] — 2026-10-17
+
+A production-readiness release: every layer audited, modernized, and re-verified.
+
+### ⚠️ Corrections to earlier claims (errata for 1.2.3)
+- "History pruning to last 50 items" — the code pruned to **8**. 1.3.0 keeps 8
+  as the documented limit (`HISTORY_MAX`).
+- "File upload validation with MIME type and magic number checking" — there was
+  no magic-number check. There still isn't (MIME prefix + extension + size only);
+  the claim is withdrawn rather than implemented silently.
+- "10/10 rating achieved" / "all vulnerabilities remediated" — not supportable
+  at the time; see the rewritten SECURITY.md for the honest posture.
+
+### Fixed — core correctness
+- Logo stitching no longer silently stops: the rasterizer cache ignored logo
+  and matrix changes when slider settings were identical (remove → re-upload a
+  different picture never rendered; longer payloads mis-sized the logo region)
+- Over-capacity payloads now show a real error in the preview instead of a
+  silent blank — capacity is validated against the SELECTED error-correction
+  level (it was always checked against level L)
+- The "we scanned it for you" decode check can no longer stick on "Scanning…"
+  forever when the canvas is unavailable (terminal error state)
+- History autosave: pure state updates (no more double-writes under
+  StrictMode), logo-aware dedupe (swapping pictures with identical settings
+  now saves), quota failures surface with a rescue attempt instead of silence
+- Payloads: SMSTO message is raw text (was percent-encoded — scanners showed
+  literal %20), multi-line text payloads keep their line breaks, vCard
+  EMAIL/URL values are escaped, empty URL: lines omitted, localhost and
+  single-label hosts accepted, short phone numbers (911) allowed
+
+### Added
+- **Per-Reed-Solomon-block logo safety gate** — inlay regions are measured
+  against the worst RS block's actual correction budget (gate: <70%), not the
+  unsafe "≤30% area" folklore; proven by round-trip tests that force-erase
+  every "safe" region and decode with a real ZXing WASM decoder
+- Export scan-safety floors: every export (PNG/SVG/print sheet) carries the
+  ISO 4-module quiet zone; new "Print size" check (module mm at 5 cm, the
+  distance÷10 rule, 0.4 mm module floor)
+- Optional **passphrase protection** for saved history (AES-256-GCM envelope,
+  PBKDF2-SHA256 600k + HKDF) with an unlock prompt — see SECURITY.md for what
+  each tier does and does not protect
+- User-approved PWA updates ("A new version is ready — Update / Later"),
+  with build-time service-worker versioning that can no longer drift
+- Real decode round-trip tests; QR generation on the vendored Nayuki
+  qrcodegen reference implementation (the previous `qrcode` dependency is
+  dormant since Aug 2024); decoding via native BarcodeDetector with an
+  actively maintained ZXing-WASM fallback (jsQR was frozen in 2021)
+- ESLint 10 + strict TS (electron main included), coverage in CI, osv-scanner,
+  SHA-pinned GitHub Actions, draft releases with SHA-256 checksums and
+  attested build provenance, unprivileged digest-pinned Docker image
+
+### Changed
+- React 19.3 + React Compiler v1; Vite 8 (Rolldown); Electron 44;
+  Tailwind 4.3 — build ~3× faster
+- Saved history moved to IndexedDB (encrypted), lifting the ~5 MB
+  localStorage ceiling; legacy plaintext and v1 encrypted stores migrate
+  automatically on first open
+- Accessibility: real labels on every field, Radix Tabs/Dialog semantics,
+  FAQ headings + aria state, focus trap on the print sheet, AA-contrast
+  theme tokens, 24px touch targets
+- macOS inlay is forced to EC level H on mode switch (was only on upload)
+
+### Security
+- The v1 "encryption" (key derived from public browser fingerprint values) is
+  replaced by the layered vault above — it also could not survive a browser
+  update without silently wiping saved history
+- Complete attribute escaping in the SVG renderer (the finder/inlay/stitch
+  paths skipped it) and DOMPurify on the remaining innerHTML sinks
+- nginx: security headers now actually apply to HTML and assets (an
+  add_header inheritance bug stripped them); CSP drops script-src
+  'unsafe-inline'; sw.js/manifest served no-cache (were "immutable" for a year)
+- Electron: window-open/navigate/webview guards, deny-all permissions,
+  explicit sandbox, packaged menu without DevTools, fuses + ASAR integrity,
+  dev server actually wired (electron:dev previously loaded a stale build)
+- Vite dev server no longer binds 0.0.0.0
+
 ## [1.2.3] — 2026-08-19
 
 ### Fixed

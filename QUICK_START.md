@@ -14,19 +14,19 @@
 ### Option 2: Download the App 💾
 
 #### For Mac:
-1. Download `StitchCode-mac.zip` from the Releases page
+1. Download the `.dmg` (or `-mac.zip`) from the [Releases page](https://github.com/RUN-APPAREL/stitchcode/releases/latest) — see DOWNLOAD.md for details
 2. Double-click to unzip it
 3. Drag `StitchCode.app` to Applications
 4. Open it from Applications folder
 
 #### For Windows:
-1. Download `StitchCode Setup.exe` from the Releases page
+1. Download the `.exe` installer from the [Releases page](https://github.com/RUN-APPAREL/stitchcode/releases/latest)
 2. Double-click to run it
 3. Click "Next" a few times
 4. Find it in Start Menu
 
 #### For Linux:
-1. Download `StitchCode.AppImage` from the Releases page
+1. Download the `.AppImage` from the [Releases page](https://github.com/RUN-APPAREL/stitchcode/releases/latest)
 2. Right-click → Properties → Permissions → Check "Allow as program"
 3. Double-click to run!
 

@@ -1,3 +1,5 @@
+> **⚠️ Superseded (2026-10-17):** frozen point-in-time analysis from the 1.2.x era. Several claims were false then and are fixed in 1.3.0 — see CHANGELOG.md's errata and the current SECURITY.md. Kept for history.
+
 # Security Hardening Report - Stitchcode QR Studio
 
 ## Date: August 17, 2026

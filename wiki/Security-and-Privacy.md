@@ -31,7 +31,7 @@ flowchart LR
   style E fill:#d4edda,stroke:#155724,stroke-width:2px
 ```
 
-[View full audit report](https://github.com/RUN-APPAREL/stitchcode/blob/main/SECURITY_AUDIT_2026.md)
+[View the superseded 1.2.x-era audit (archive)](https://github.com/RUN-APPAREL/stitchcode/blob/main/docs/archive/SECURITY_AUDIT_2026.md)
 
 ---
 
@@ -285,6 +285,6 @@ If hosting the app yourself:
 
 **Built with care • Audited for safety • Trusted by design**
 
-[📖 View Full Audit Report](https://github.com/RUN-APPAREL/stitchcode/blob/main/SECURITY_AUDIT_2026.md) · [🛡️ Security Policy](https://github.com/RUN-APPAREL/stitchcode/blob/main/SECURITY.md)
+[📖 Superseded 1.2.x-era audit (archive)](https://github.com/RUN-APPAREL/stitchcode/blob/main/docs/archive/SECURITY_AUDIT_2026.md) · [🛡️ Security Policy](https://github.com/RUN-APPAREL/stitchcode/blob/main/SECURITY.md)
 
 </div>
