@@ -12,8 +12,9 @@
  * Fuses (runAsNode/nodeCliInspect off, ASAR integrity) are flipped by
  * electron-builder's `electronFuses` config in package.json.
  */
-const { app, BrowserWindow, Menu, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, net, protocol, session, shell } = require('electron');
 const path = require('path');
+const { pathToFileURL } = require('node:url');
 
 /* electron:dev sets this (cross-env) — the packaged app loads the build */
 const DEV_URL = process.env.ELECTRON_RENDERER_URL;
@@ -35,7 +36,7 @@ const CSP =
  */
 function isAppUrl(url) {
   if (DEV_URL) return url.startsWith(DEV_URL);
-  return url.startsWith('file://');
+  return url.startsWith('app://');
 }
 
 function minimalMenu() {
@@ -79,7 +80,6 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true,
       webSecurity: true,
       allowRunningInsecureContent: false,
       spellcheck: false,
@@ -100,9 +100,20 @@ function createWindow() {
   if (DEV_URL) {
     win.loadURL(DEV_URL);
   } else {
-    win.loadFile(path.join(__dirname, '../dist/index.html'));
+    win.loadURL('app://local/index.html');
   }
 }
+
+/* Serve the renderer over a custom privileged protocol instead of file://.
+   Vite's split-chunk modulepreloads carry `crossorigin`, which hard-fails on
+   file://'s opaque origin and aborts the whole document load (ERR_FAILED).
+   An app:// origin also gets proper same-origin semantics for the CSP. */
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true },
+  },
+]);
 
 app.on('web-contents-created', (_event, contents) => {
   contents.on('will-navigate', (event, url) => {
@@ -120,6 +131,13 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler(
     (_webContents, _permission, callback) => callback(false),
   );
+
+  protocol.handle('app', (request) => {
+    const url = new URL(request.url);
+    const p = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname);
+    const filePath = path.join(__dirname, '../dist', p);
+    return net.fetch(pathToFileURL(filePath).toString());
+  });
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
