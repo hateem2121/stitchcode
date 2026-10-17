@@ -1,3 +1,4 @@
+import { useId } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import {
   Link as LinkIcon,
@@ -197,7 +198,7 @@ export function ContentForms({
             })}
           </div>
 
-          <div className="space-y-3.5">
+          <Tabs.Content value={type} className="space-y-3.5 focus-visible:outline-none">
             {type === "url" && (
               <>
                 <TextInput
@@ -360,7 +361,7 @@ export function ContentForms({
                 tip="Use full international format for cross-border scans."
               />
             )}
-          </div>
+          </Tabs.Content>
         </Tabs.Root>
       </div>
     </IndustrialCard>
@@ -384,13 +385,18 @@ function TextInput({
   tip?: string;
   disabled?: boolean;
 }) {
+  const id = useId();
   return (
     <div className={disabled ? "opacity-45" : ""}>
-      <span className="mb-1.5 flex items-center gap-1.5 text-[12px] font-bold text-ink-dim">
+      <label
+        htmlFor={id}
+        className="mb-1.5 flex items-center gap-1.5 text-[12px] font-bold text-ink-dim"
+      >
         {label}
         {tip && <Tip text={tip} />}
-      </span>
+      </label>
       <input
+        id={id}
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
@@ -414,10 +420,14 @@ function TextArea({
   placeholder?: string;
   rows?: number;
 }) {
+  const id = useId();
   return (
     <div>
-      <span className="mb-1.5 block text-[12px] font-bold text-ink-dim">{label}</span>
+      <label htmlFor={id} className="mb-1.5 block text-[12px] font-bold text-ink-dim">
+        {label}
+      </label>
       <textarea
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -447,6 +457,8 @@ function SegEnc({
         {opts.map((o) => (
           <button
             key={o.value}
+            type="button"
+            aria-pressed={value === o.value}
             onClick={() => onChange(o.value)}
             className={`flex-1 rounded-full px-1 py-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.03em] transition-colors ${
               value === o.value ? "bg-ink text-bg" : "text-ink-dim hover:text-ink"

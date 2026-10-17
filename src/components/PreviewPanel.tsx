@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import * as RadixDialog from "@radix-ui/react-dialog";
 import DOMPurify from "dompurify";
 import { decodeQR } from "../lib/decode";
 import { Download, Image as ImageIcon, Copy, ScanLine, Layers, Gauge, Printer, Sparkles, Share2 } from "lucide-react";
@@ -324,8 +324,10 @@ export function PreviewPanel({
         await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
         toast("success", "Sharing isn't here — copied to clipboard instead");
       }
-    } catch {
-      /* user dismissed the share sheet — nothing to report */
+    } catch (err) {
+      /* dismissals are quiet; real failures get a toast */
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      toast("error", "Sharing failed — use Download instead");
     }
   };
 
@@ -351,6 +353,8 @@ export function PreviewPanel({
             {SUBSTRATES.map((s) => (
               <button
                 key={s.id}
+                type="button"
+                aria-pressed={substrate === s.id}
                 onClick={() => setSubstrate(s.id)}
                 className={`flex items-center gap-1.5 rounded-full border-[1.5px] py-1 pl-1 pr-2.5 text-[10.5px] font-extrabold transition-all ${
                   substrate === s.id
@@ -375,7 +379,7 @@ export function PreviewPanel({
           {matrix ? (
             <div className="relative w-full max-w-[300px]">
               <div
-                key={`${payload.length}:${payload}:${style.fg}:${style.margin}:${style.dotStyle}:${style.cornerStyle}:${style.ec}:${style.logoScale}:${style.logoThreshold}:${style.logoEdge}:${logoN}:${printed.length}`}
+                key={`${payload}:${style.fg}:${style.bg}:${style.margin}:${style.dotStyle}:${style.cornerStyle}:${style.ec}:${style.logoMode}:${style.logoScale}:${style.logoThreshold}:${style.logoBrightness}:${style.logoContrast}:${style.logoFade}:${style.logoEdge}:${logoN}`}
                 className="qr-pop qr-live"
                 dangerouslySetInnerHTML={{ __html: printed }}
                 onPointerMove={onScopeMove}
@@ -567,14 +571,15 @@ export function PreviewPanel({
         </div>
       </IndustrialCard>
 
-      {sheet && matrix && (
+      {matrix && (
         <PrintSheet
+          open={sheet}
+          onOpenChange={setSheet}
           matrix={matrix}
           style={style}
           payload={payload}
           logoGrid={logoGrid}
           logoN={logoN}
-          onClose={() => setSheet(false)}
         />
       )}
     </div>
@@ -592,19 +597,21 @@ const TICKS = [
 ];
 
 function PrintSheet({
+  open,
+  onOpenChange,
   matrix,
   style,
   payload,
   logoGrid,
   logoN,
-  onClose,
 }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   matrix: QRMatrix;
   style: StyleState;
   payload: string;
   logoGrid: Uint8Array | null;
   logoN: number;
-  onClose: () => void;
 }) {
   const cm = ((style.exportPx / 300) * 2.54).toFixed(1);
   /* print exports always carry the 4-module quiet zone; sanitized like
@@ -625,17 +632,12 @@ function PrintSheet({
   const excerpt = payload.length > 64 ? `${payload.slice(0, 61)}…` : payload;
 
   useEffect(() => {
-    const after = () => onClose();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
+    const after = () => onOpenChange(false);
     window.addEventListener("afterprint", after);
-    window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("afterprint", after);
-      window.removeEventListener("keydown", onKey);
     };
-  }, [onClose]);
+  }, [onOpenChange]);
 
   const framed = (width: string, key: string) => (
     <div className="relative" key={key}>
@@ -646,96 +648,92 @@ function PrintSheet({
     </div>
   );
 
-  return createPortal(
-    <div
-      className="print-overlay fixed inset-0 z-[100] overflow-y-auto bg-ink/70 px-4 py-10 backdrop-blur-[2px]"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Print proof sheet"
-    >
-      <div
-        className="print-toolbar sticky top-4 z-10 mx-auto mb-6 flex w-fit items-center gap-2 rounded-full border-[1.5px] border-bg/30 bg-ink px-2 py-2 shadow-brutal-accent"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-[12px] font-extrabold uppercase tracking-[0.08em] text-accent-ink transition-transform hover:scale-[1.03] active:scale-95"
-        >
-          <Printer size={14} /> Print this sheet
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full px-4 py-2 text-[12px] font-extrabold uppercase tracking-[0.08em] text-bg/80 transition-colors hover:text-bg"
-        >
-          Close
-        </button>
-      </div>
+  /* Radix Dialog: real focus trap + focus restore + Escape handling */
+  return (
+    <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
+      <RadixDialog.Portal>
+        <RadixDialog.Overlay className="print-overlay fixed inset-0 z-[100] bg-ink/70 backdrop-blur-[2px]" />
+        <RadixDialog.Content className="fixed inset-0 z-[100] overflow-y-auto px-4 py-10 focus-visible:outline-none">
+          <RadixDialog.Title className="sr-only">Print proof sheet</RadixDialog.Title>
+          <RadixDialog.Description className="sr-only">
+            Paper-size proof of your QR code with a minimum-size scan check.
+          </RadixDialog.Description>
+          <div className="print-toolbar sticky top-4 z-10 mx-auto mb-6 flex w-fit items-center gap-2 rounded-full border-[1.5px] border-bg/30 bg-ink px-2 py-2 shadow-brutal-accent">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-[12px] font-extrabold uppercase tracking-[0.08em] text-accent-ink transition-transform hover:scale-[1.03] active:scale-95"
+            >
+              <Printer size={14} /> Print this sheet
+            </button>
+            <RadixDialog.Close
+              type="button"
+              className="rounded-full px-4 py-2 text-[12px] font-extrabold uppercase tracking-[0.08em] text-bg/80 transition-colors hover:text-bg"
+            >
+              Close
+            </RadixDialog.Close>
+          </div>
 
-      <div
-        className="print-paper mx-auto w-full max-w-[620px] border-[1.5px] border-ink bg-white text-neutral-900 shadow-brutal-accent"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-10">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="font-display text-[20px] font-black leading-none tracking-tight">
-                RUN STITCHCODE
+          <div className="print-paper mx-auto w-full max-w-[620px] border-[1.5px] border-ink bg-white text-neutral-900 shadow-brutal-accent">
+            <div className="p-10">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-display text-[20px] font-black leading-none tracking-tight">
+                    RUN STITCHCODE
+                  </p>
+                  <p className="mt-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.28em] text-neutral-500">
+                    Print proof
+                  </p>
+                </div>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-500">{date}</p>
+              </div>
+              <div className="mt-4 border-t-2 border-neutral-900" />
+
+              <div className="flex justify-center py-10">{framed(`${cm}cm`, "main")}</div>
+              <p className="text-center font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+                {cm} × {cm} cm — your chosen size
               </p>
-              <p className="mt-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.28em] text-neutral-500">
-                Print proof
-              </p>
+
+              <div className="mt-9 grid grid-cols-[auto_1fr] items-center gap-6 border-t border-dashed border-neutral-300 pt-7">
+                {framed("2cm", "min")}
+                <div>
+                  <p className="font-display text-[13px] font-black uppercase tracking-tight">
+                    Minimum check — 2.0 cm
+                  </p>
+                  <p className="mt-1 text-[12px] font-medium leading-relaxed text-neutral-600">
+                    Scan this small copy from about 25 cm away. If it reads, the code is print-safe at
+                    every size above it.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-3 border-t-2 border-neutral-900 pt-4 sm:grid-cols-4">
+                <Meta
+                  label="Code colour"
+                  value={
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="inline-block h-3 w-3 rounded-[3px] border border-neutral-400"
+                        style={{ background: style.fg }}
+                      />
+                      {style.fg}
+                    </span>
+                  }
+                />
+                <Meta label="Safety" value={`Level ${style.ec}`} />
+                <Meta label="Blank border" value={`${style.margin} squares`} />
+                <Meta label="Content" value={excerpt} />
+              </div>
+
+              <div className="mt-8 flex items-center justify-between gap-3 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-neutral-400">
+                <span>Print at 100% scale — never “fit to page”</span>
+                <span>generated locally · nothing sent</span>
+              </div>
             </div>
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-500">{date}</p>
           </div>
-          <div className="mt-4 border-t-2 border-neutral-900" />
-
-          <div className="flex justify-center py-10">{framed(`${cm}cm`, "main")}</div>
-          <p className="text-center font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
-            {cm} × {cm} cm — your chosen size
-          </p>
-
-          <div className="mt-9 grid grid-cols-[auto_1fr] items-center gap-6 border-t border-dashed border-neutral-300 pt-7">
-            {framed("2cm", "min")}
-            <div>
-              <p className="font-display text-[13px] font-black uppercase tracking-tight">
-                Minimum check — 2.0 cm
-              </p>
-              <p className="mt-1 text-[12px] font-medium leading-relaxed text-neutral-600">
-                Scan this small copy from about 25 cm away. If it reads, the code is print-safe at
-                every size above it.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-3 border-t-2 border-neutral-900 pt-4 sm:grid-cols-4">
-            <Meta
-              label="Code colour"
-              value={
-                <span className="flex items-center gap-1.5">
-                  <span
-                    className="inline-block h-3 w-3 rounded-[3px] border border-neutral-400"
-                    style={{ background: style.fg }}
-                  />
-                  {style.fg}
-                </span>
-              }
-            />
-            <Meta label="Safety" value={`Level ${style.ec}`} />
-            <Meta label="Blank border" value={`${style.margin} squares`} />
-            <Meta label="Content" value={excerpt} />
-          </div>
-
-          <div className="mt-8 flex items-center justify-between gap-3 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-neutral-400">
-            <span>Print at 100% scale — never “fit to page”</span>
-            <span>generated locally · nothing sent</span>
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body,
+        </RadixDialog.Content>
+      </RadixDialog.Portal>
+    </RadixDialog.Root>
   );
 }
 

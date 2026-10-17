@@ -188,14 +188,21 @@ export default function App() {
 function Header({ theme, onTheme }: { theme: ThemeId; onTheme: (t: ThemeId) => void }) {
   const [progress, setProgress] = useState(0);
   useEffect(() => {
+    let raf = 0;
     const onScroll = () => {
-      const h = document.documentElement;
-      const max = h.scrollHeight - h.clientHeight;
-      setProgress(max > 0 ? h.scrollTop / max : 0);
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const h = document.documentElement;
+        const max = h.scrollHeight - h.clientHeight;
+        setProgress(max > 0 ? h.scrollTop / max : 0);
+      });
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+    };
   }, []);
   return (
     <header className="relative sticky top-0 z-50 border-b-[1.5px] border-ink bg-bg/85 backdrop-blur-md">
@@ -393,13 +400,20 @@ function Opener() {
   const sample = DOMPurify.sanitize(sampleSVG, { USE_PROFILES: { svg: true, svgFilters: true } });
   const watermark = DOMPurify.sanitize(watermarkSVG, { USE_PROFILES: { svg: true, svgFilters: true } });
 
-  /* tactile pointer-tilt on the specimen card */
+  /* tactile pointer-tilt on the specimen card — listener scoped to the card
+     itself (a window-wide handler forced layout work on every mouse move,
+     even on viewports where the card is hidden); the rect is cached on
+     pointerenter instead of re-measured per event */
   useEffect(() => {
     const card = cardRef.current;
     if (!card || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
+    let r: DOMRect | null = null;
+    const onEnter = () => {
+      r = card.getBoundingClientRect();
+    };
     const onMove = (e: PointerEvent) => {
-      const r = card.getBoundingClientRect();
+      if (!r) r = card.getBoundingClientRect();
       const px = (e.clientX - r.left) / r.width - 0.5;
       const py = (e.clientY - r.top) / r.height - 0.5;
       cancelAnimationFrame(raf);
@@ -410,12 +424,15 @@ function Opener() {
       });
     };
     const onLeave = () => {
+      r = null;
       card.style.transform = "";
     };
-    window.addEventListener("pointermove", onMove);
+    card.addEventListener("pointerenter", onEnter);
+    card.addEventListener("pointermove", onMove);
     card.addEventListener("pointerleave", onLeave);
     return () => {
-      window.removeEventListener("pointermove", onMove);
+      card.removeEventListener("pointerenter", onEnter);
+      card.removeEventListener("pointermove", onMove);
       card.removeEventListener("pointerleave", onLeave);
       cancelAnimationFrame(raf);
     };

@@ -143,11 +143,15 @@ export function FAQ() {
                 isOpen ? "border-ink bg-surface shadow-brutal" : "border-line bg-surface/70"
               }`}
             >
-              <button
-                onClick={() => setOpen(isOpen ? null : i)}
-                className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
-              >
-                <span className="text-[14px] font-black tracking-tight text-ink">{f.q}</span>
+              <h3 className="m-0">
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-controls={`faq-panel-${i}`}
+                  onClick={() => setOpen(isOpen ? null : i)}
+                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+                >
+                  <span className="text-[14px] font-black tracking-tight text-ink">{f.q}</span>
                 <motion.span
                   animate={{ rotate: isOpen ? 45 : 0 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
@@ -157,10 +161,13 @@ export function FAQ() {
                 >
                   <Plus size={14} />
                 </motion.span>
-              </button>
+                </button>
+              </h3>
               <AnimatePresence initial={false}>
                 {isOpen && (
                   <motion.div
+                    id={`faq-panel-${i}`}
+                    role="region"
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
@@ -343,7 +350,7 @@ export function Anatomy() {
                     onClick={() => setActive(pt.id)}
                     aria-pressed={on}
                     aria-label={pt.name}
-                    className={`absolute z-10 h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] transition-all duration-200 ${
+                    className={`absolute z-10 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] transition-all duration-200 ${
                       on
                         ? "scale-125 border-ink bg-accent shadow-brutal-sm"
                         : "border-bg bg-ink hover:scale-110 hover:bg-accent2"
