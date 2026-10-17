@@ -4,6 +4,7 @@
  * package.json config key does not exist in electron-builder 26.15, so this
  * uses the official @electron/fuses hook instead.
  */
+const fs = require("node:fs");
 const path = require("node:path");
 const { flipFuses, FuseVersion, FuseV1Options } = require("@electron/fuses");
 
@@ -17,10 +18,20 @@ const { flipFuses, FuseVersion, FuseV1Options } = require("@electron/fuses");
 exports.default = async function afterPack(context) {
   const name = context.packager.appInfo.productFilename;
   const platform = context.electronPlatformName;
-  const target =
-    platform === "darwin"
-      ? path.join(context.appOutDir, `${name}.app`)
-      : path.join(context.appOutDir, platform === "win32" ? `${name}.exe` : name);
+  let target;
+  if (platform === "darwin") {
+    target = path.join(context.appOutDir, `${name}.app`);
+  } else {
+    /* the executable name is sanitised per-platform (e.g. linux lowercases
+       the product name) — resolve it from the output directory instead of
+       guessing */
+    const wanted = platform === "win32" ? `${name.toLowerCase()}.exe` : name.toLowerCase();
+    const hit = fs
+      .readdirSync(context.appOutDir)
+      .find((f) => f.toLowerCase() === wanted);
+    if (!hit) throw new Error(`afterPack: no executable found in ${context.appOutDir}`);
+    target = path.join(context.appOutDir, hit);
+  }
 
   await flipFuses(target, {
     version: FuseVersion.V1,
