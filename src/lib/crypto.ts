@@ -1,351 +1,486 @@
 /**
- * Lightweight encryption utilities for securing sensitive data in localStorage.
- * Uses Web Crypto API for AES-GCM encryption with PBKDF2 key derivation.
+ * Local history protection — layered, and honest about what it is.
  *
- * Security properties (as of 2026):
- * - AES-256-GCM: Authenticated encryption with associated data
- * - PBKDF2-SHA256: Key derivation with configurable iterations
- * - Random salt and IV for each encryption operation
- * - Constant-time comparison for authentication tags
- * 
- * Key Management:
- * - Supports both device-fingerprint derived keys and user-provided passphrases
- * - User passphrases provide stronger security and cross-device sync capability
- * - Device fingerprint fallback for convenience (offline-only scenarios)
+ * Design (2026):
+ * - AES-256-GCM envelope. A random 256-bit data key (DEK) encrypts the
+ *   history blob; the DEK itself is stored WRAPPED:
+ *     · device tier (default): wrapped with a random device key stored
+ *       alongside the data. This is OBFUSCATION — anything that can read the
+ *       storage can unwrap it. It prevents casual shoulder-surfing in devtools
+ *       and nothing more. Say so, always.
+ *     · passphrase tier (optional): wrapped with a key derived from the
+ *       user's passphrase — PBKDF2-SHA256 (600k iterations, per OWASP's
+ *       current guidance) domain-separated through HKDF-SHA256. THIS is real
+ *       protection: without the passphrase the history is unrecoverable.
+ * - Storage lives in IndexedDB (async, ArrayBuffer-native, far larger quota
+ *   than localStorage's ~5 MB string budget).
+ * - Everything is version-tagged (`v: 2`) so future format changes are
+ *   deterministic migrations, not guesswork.
+ * - The unwrapped DEK is cached for the session (and the KDF runs once per
+ *   unlock, not once per autosave).
+ *
+ * Migrations handled at open: the v1 fingerprint-encrypted blob and the v0
+ * plaintext list are adopted best-effort. (v1's key derived from the browser
+ * fingerprint — if the browser has updated since, that data was already
+ * unreadable and we start fresh; v2 ends that fragility.)
+ *
+ * Not provided (deliberately): cross-device sync, WebAuthn-prf unlock
+ * (browser support still too fragmented as of Oct 2026 — revisit later).
  */
 
-const ENC_ALGO = { name: "AES-GCM", length: 256 };
-const DERIVE_ALGO = { name: "PBKDF2", hash: "SHA-256" };
-const SALT_LEN = 16;
+const DB_NAME = "stitchcode-vault";
+const DB_VERSION = 1;
+const STORE = "kv";
+const META_KEY = "meta";
+const DEVICE_WRAP_KEY_LS = "stitchcode:device-wrap-key";
+
+/** Legacy storage names (migration only) */
+const LEGACY_ENC_PREFIX = "__enc:";
+const LEGACY_PLAIN_HISTORY = "stitchcode:history";
+
+const ENC = { name: "AES-GCM", length: 256 } as const;
 const IV_LEN = 12;
-const ITERATIONS = 350000; // OWASP 2026 recommendation for PBKDF2-SHA256
+const DEK_LEN = 32;
+const PBKDF2_ITERATIONS = 600_000; // OWASP Password Storage Cheat Sheet (SHA-256)
+const HKDF_INFO = new TextEncoder().encode("stitchcode-history-kek-v1");
+export const PASSPHRASE_MIN = 8;
 
-// Storage keys for user passphrase management
-const PASSPHRASE_SALT_KEY = "__stitchcode:passphrase_salt";
-const PASSPHRASE_VERIFIER_KEY = "__stitchcode:passphrase_verifier";
+/* --------------------------- small helpers --------------------------- */
 
-/**
- * Derives a cryptographic key from a password using PBKDF2.
- */
-async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(password),
-    DERIVE_ALGO,
-    false,
-    ["deriveKey"]
+function bytesToB64(bytes: Uint8Array): string {
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
+function b64ToBytes(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+async function aesKey(raw: Uint8Array): Promise<CryptoKey> {
+  return crypto.subtle.importKey("raw", raw as unknown as ArrayBuffer, ENC, false, [
+    "encrypt",
+    "decrypt",
+  ]);
+}
+
+/** AES-GCM encrypt → base64(iv | ciphertext+tag) */
+async function seal(key: CryptoKey, plain: Uint8Array): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
+  const ct = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plain as unknown as ArrayBuffer),
   );
+  const out = new Uint8Array(iv.length + ct.length);
+  out.set(iv, 0);
+  out.set(ct, iv.length);
+  return bytesToB64(out);
+}
 
+/** AES-GCM decrypt of seal() output; throws on auth failure */
+async function unseal(key: CryptoKey, packed: string): Promise<Uint8Array> {
+  const raw = b64ToBytes(packed);
+  const iv = raw.slice(0, IV_LEN);
+  const ct = raw.slice(IV_LEN);
+  const plain = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: iv as unknown as ArrayBuffer },
+    key,
+    ct as unknown as ArrayBuffer,
+  );
+  return new Uint8Array(plain);
+}
+
+/** passphrase → wrapping key: PBKDF2(600k) → HKDF-SHA256 (domain-separated).
+ *  HKDF keys can't be derived directly from PBKDF2 (not in the spec's allowed
+ *  derivedKeyAlgorithm set) — go through raw bits instead. */
+async function passphraseToKek(pass: string, salt: Uint8Array): Promise<CryptoKey> {
+  const material = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(pass) as unknown as ArrayBuffer,
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      hash: "SHA-256",
+      salt: salt as unknown as ArrayBuffer,
+      iterations: PBKDF2_ITERATIONS,
+    },
+    material,
+    256,
+  );
+  const intermediate = await crypto.subtle.importKey("raw", bits, "HKDF", false, ["deriveKey"]);
   return crypto.subtle.deriveKey(
     {
-      ...DERIVE_ALGO,
-      salt: salt.buffer.slice(salt.byteOffset, salt.byteOffset + salt.byteLength) as ArrayBuffer,
-      iterations: ITERATIONS,
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: salt as unknown as ArrayBuffer,
+      info: HKDF_INFO as unknown as ArrayBuffer,
     },
-    keyMaterial,
-    ENC_ALGO,
+    intermediate,
+    ENC,
     false,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
 }
 
-/**
- * Constant-time byte array comparison to prevent timing attacks.
- * Returns true if both arrays are equal in length and content.
- */
-function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a[i] ^ b[i];
-  }
-  return result === 0;
+/* --------------------------- IndexedDB kv --------------------------- */
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error ?? new Error("IndexedDB open failed"));
+  });
 }
 
-/**
- * Encrypts plaintext data using AES-256-GCM.
- * Returns base64-encoded ciphertext with salt and IV prepended.
- * Format: [salt: 16 bytes][iv: 12 bytes][ciphertext + authTag]
- */
-export async function encrypt(text: string, password: string): Promise<string> {
-  const salt = crypto.getRandomValues(new Uint8Array(SALT_LEN));
-  const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
-  const key = await deriveKey(password, salt);
-  const enc = new TextEncoder();
-
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    enc.encode(text)
-  );
-
-  // Combine salt + iv + ciphertext
-  const combined = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
-  combined.set(salt, 0);
-  combined.set(iv, salt.length);
-  combined.set(new Uint8Array(ciphertext), salt.length + iv.length);
-
-  // Convert to base64
-  let binary = "";
-  for (let i = 0; i < combined.length; i++) {
-    binary += String.fromCharCode(combined[i]);
-  }
-  return btoa(binary);
-}
-
-/**
- * Decrypts data encrypted with encrypt().
- * Expects base64-encoded input with salt and IV prepended.
- * Uses constant-time comparison for authentication tag validation.
- */
-export async function decrypt(encryptedBase64: string, password: string): Promise<string> {
-  // Decode base64
-  const binary = atob(encryptedBase64);
-  const combined = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    combined[i] = binary.charCodeAt(i);
-  }
-
-  // Extract salt, iv, and ciphertext
-  const salt = combined.slice(0, SALT_LEN);
-  const iv = combined.slice(SALT_LEN, SALT_LEN + IV_LEN);
-  const ciphertext = combined.slice(SALT_LEN + IV_LEN);
-
-  const key = await deriveKey(password, salt);
-
+async function idbGet<T>(key: string): Promise<T | undefined> {
+  const db = await openDb();
   try {
-    const plaintext = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv },
-      key,
-      ciphertext
-    );
-
-    const dec = new TextDecoder();
-    return dec.decode(plaintext);
-  } catch (error) {
-    // Authentication failed - possible tampering or wrong password
-    // Use constant-time operations to avoid timing side-channels
-    const dummy = new Uint8Array(ciphertext.length);
-    constantTimeEqual(dummy, ciphertext);
-    throw new Error("Decryption failed: authentication tag mismatch", { cause: error });
+    return await new Promise<T | undefined>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readonly");
+      const req = tx.objectStore(STORE).get(key);
+      req.onsuccess = () => resolve(req.result as T | undefined);
+      req.onerror = () => reject(req.error);
+    });
+  } finally {
+    db.close();
   }
 }
 
+async function idbPut(key: string, value: unknown): Promise<void> {
+  const db = await openDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+/* --------------------------- vault model --------------------------- */
+
+interface WrapMeta {
+  mode: "device" | "passphrase";
+  /** PBKDF2 salt (b64) — passphrase tier only */
+  salt?: string;
+  iterations?: number;
+  /** b64(iv | wrapped DEK) */
+  wrappedDek: string;
+  /** b64(iv | sealed verifier string) — passphrase tier only */
+  verifier?: string;
+}
+
+interface MetaRecord {
+  v: 2;
+  wrap: WrapMeta;
+}
+
+interface BlobRecord {
+  v: 2;
+  /** b64(iv | ciphertext) — encrypted with the DEK */
+  ct: string;
+}
+
+export type VaultStatus = "ready" | "locked" | "missing";
+
+/* session cache — the DEK material, derived/imported once per session */
+let sessionDek: CryptoKey | null = null;
+let sessionDekRaw: Uint8Array | null = null;
+let vaultState: VaultStatus = "missing";
+let wrapMode: WrapMeta["mode"] = "device";
+let opened = false;
+
+export function vaultStatus(): VaultStatus {
+  return vaultState;
+}
+
+/** True when a passphrase must unlock the vault (passphrase tier, not yet
+ *  unlocked this session). */
+export function isLocked(): boolean {
+  return vaultState === "locked";
+}
+
+/** True when the vault is protected by a passphrase (either tier of lock). */
+export function isPassphraseProtected(): boolean {
+  return wrapMode === "passphrase";
+}
+
+function getDeviceWrapKey(): Uint8Array {
+  const existing = localStorage.getItem(DEVICE_WRAP_KEY_LS);
+  if (existing) {
+    try {
+      return b64ToBytes(existing);
+    } catch {
+      /* fall through — regenerate */
+    }
+  }
+  const fresh = crypto.getRandomValues(new Uint8Array(32));
+  localStorage.setItem(DEVICE_WRAP_KEY_LS, bytesToB64(fresh));
+  return fresh;
+}
+
+async function cacheDek(raw: Uint8Array): Promise<void> {
+  sessionDekRaw = raw;
+  sessionDek = await aesKey(raw);
+}
+
+async function createDeviceVault(): Promise<void> {
+  const dek = crypto.getRandomValues(new Uint8Array(DEK_LEN));
+  const wrapKey = await aesKey(getDeviceWrapKey());
+  const wrappedDek = await seal(wrapKey, dek);
+  const meta: MetaRecord = { v: 2, wrap: { mode: "device", wrappedDek } };
+  await idbPut(META_KEY, meta);
+  await cacheDek(dek);
+  wrapMode = "device";
+  vaultState = "ready";
+}
+
+/* --------------------------- legacy migration --------------------------- */
+
 /**
- * Generates a deterministic but secure app-specific key from device fingerprint.
- * This is used as the default encryption key for localStorage data when no user passphrase is set.
- * 
- * @deprecated Use setUserPassphrase() and getUserPassphraseKey() for better security
+ * v1 derived its key from browser fingerprint properties (userAgent,
+ * language, colorDepth, timezone, hostname) — the fingerprint was SHA-256
+ * hashed, base64-encoded, and used as the PBKDF2 password. Reproduced ONLY
+ * to read old blobs during migration; nothing new is ever encrypted with it.
+ * A browser update changes the fingerprint — such blobs are unreadable by
+ * design of v1, and the migration simply starts fresh.
  */
-export async function getAppKey(): Promise<string> {
-  // Use a combination of stable browser properties
-  const fingerprint = [
+async function legacyBlobPassword(): Promise<string> {
+  /* v1 fingerprints were hashed via SHA-256 then used as PBKDF2 "password"
+     material — reproduce that: the getAppKey() digest, base64-encoded. */
+  const parts = [
     navigator.userAgent,
     navigator.language,
-    screen.colorDepth,
-    new Date().getTimezoneOffset(),
+    String(screen?.colorDepth ?? 24),
+    String(new Date().getTimezoneOffset()),
     location.hostname,
   ].join("|");
-
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fingerprint));
-  const hashBytes = new Uint8Array(hash);
-
-  // Convert to base64 for use as password
-  let binary = "";
-  for (let i = 0; i < hashBytes.length; i++) {
-    binary += String.fromCharCode(hashBytes[i]);
-  }
-  return btoa(binary);
+  const digest = new Uint8Array(
+    await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(parts) as unknown as ArrayBuffer,
+    ),
+  );
+  return bytesToB64(digest);
 }
 
-/**
- * Sets up a user passphrase for encryption with proper salt and verification.
- * Stores a salt and a verifier (encrypted test string) to validate the passphrase later.
- * 
- * @param passphrase - User's chosen passphrase (minimum 8 characters recommended)
- * @returns true if successfully set
- */
-export async function setUserPassphrase(passphrase: string): Promise<boolean> {
-  if (passphrase.length < 1) {
-    return false;
-  }
-
-  try {
-    // Generate random salt for this passphrase
-    const salt = crypto.getRandomValues(new Uint8Array(SALT_LEN));
-    
-    // Derive key from passphrase
-    const key = await deriveKey(passphrase, salt);
-    
-    // Create a verifier by encrypting a known string
-    const testString = "STITCHCODE_VERIFY_2026";
-    const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
-    const encrypted = await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv },
-      key,
-      new TextEncoder().encode(testString)
-    );
-    
-    // Store salt and verifier (IV prepended to ciphertext)
-    const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
-    combined.set(salt, 0);
-    combined.set(iv, salt.length);
-    combined.set(new Uint8Array(encrypted), salt.length + iv.length);
-    
-    // Convert to base64 for storage
-    let binary = "";
-    for (let i = 0; i < combined.length; i++) {
-      binary += String.fromCharCode(combined[i]);
-    }
-    const verifierBase64 = btoa(binary);
-    
-    // Store in localStorage (not encrypted, just encoded)
-    let saltBinary = "";
-    for (let i = 0; i < salt.length; i++) {
-      saltBinary += String.fromCharCode(salt[i]);
-    }
-    localStorage.setItem(PASSPHRASE_SALT_KEY, btoa(saltBinary));
-    localStorage.setItem(PASSPHRASE_VERIFIER_KEY, verifierBase64);
-    
-    return true;
-  } catch (error) {
-    console.error("Failed to set passphrase:", error);
-    return false;
-  }
+/** Decrypt a v1 blob: b64(salt16 | iv12 | ct), PBKDF2(password, salt, 350k). */
+async function legacyDecrypt(blobB64: string, password: string): Promise<string> {
+  const raw = b64ToBytes(blobB64);
+  const salt = raw.slice(0, 16);
+  const iv = raw.slice(16, 28);
+  const ct = raw.slice(28);
+  const material = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password) as unknown as ArrayBuffer,
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      hash: "SHA-256",
+      salt: salt as unknown as ArrayBuffer,
+      iterations: 350_000,
+    },
+    material,
+    ENC,
+    false,
+    ["encrypt", "decrypt"],
+  );
+  const plain = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: iv as unknown as ArrayBuffer },
+    key,
+    ct as unknown as ArrayBuffer,
+  );
+  return new TextDecoder().decode(plain);
 }
 
-/**
- * Verifies if a passphrase is correct by attempting to decrypt the stored verifier.
- * 
- * @param passphrase - User's passphrase to verify
- * @returns true if passphrase is correct, false otherwise
- */
-export async function verifyPassphrase(passphrase: string): Promise<boolean> {
-  try {
-    const saltB64 = localStorage.getItem(PASSPHRASE_SALT_KEY);
-    const verifierB64 = localStorage.getItem(PASSPHRASE_VERIFIER_KEY);
-    
-    if (!saltB64 || !verifierB64) {
-      return false;
-    }
-    
-    // Decode salt
-    const saltBinary = atob(saltB64);
-    const salt = new Uint8Array(saltBinary.length);
-    for (let i = 0; i < saltBinary.length; i++) {
-      salt[i] = saltBinary.charCodeAt(i);
-    }
-    
-    // Decode verifier (salt + IV + encrypted test string)
-    const combined = new Uint8Array(atob(verifierB64).split('').map(c => c.charCodeAt(0)));
-    const iv = combined.slice(SALT_LEN, SALT_LEN + IV_LEN);
-    const ciphertext = combined.slice(SALT_LEN + IV_LEN);
-    
-    // Derive key and attempt decryption
-    const key = await deriveKey(passphrase, salt);
-    const decrypted = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv },
-      key,
-      ciphertext
-    );
-    
-    const dec = new TextDecoder();
-    const result = dec.decode(decrypted);
-    
-    return result === "STITCHCODE_VERIFY_2026";
-  } catch {
-    return false;
-  }
+function isHistoryArray(v: unknown): v is unknown[] {
+  return (
+    Array.isArray(v) &&
+    v.every(
+      (x) =>
+        !!x &&
+        typeof x === "object" &&
+        typeof (x as { id?: unknown }).id === "string" &&
+        typeof (x as { ts?: unknown }).ts === "number" &&
+        typeof (x as { payload?: unknown }).payload === "string",
+    )
+  );
 }
 
-/**
- * Gets the encryption key derived from user passphrase if set, otherwise falls back to device fingerprint.
- * 
- * @param passphrase - Optional passphrase (if not provided, attempts to use stored one or falls back to device key)
- * @returns The encryption key as a string
- */
-export async function getUserPassphraseKey(passphrase?: string): Promise<string | null> {
-  if (passphrase) {
-    const valid = await verifyPassphrase(passphrase);
-    if (valid) {
-      return passphrase;
+async function migrateLegacy(): Promise<unknown[] | null> {
+  /* v1: fingerprint-encrypted blob */
+  const encV1 = localStorage.getItem(`${LEGACY_ENC_PREFIX}stitchcode:history`);
+  if (encV1) {
+    try {
+      const parsed = JSON.parse(await legacyDecrypt(encV1, await legacyBlobPassword()));
+      if (isHistoryArray(parsed)) {
+        localStorage.removeItem(`${LEGACY_ENC_PREFIX}stitchcode:history`);
+        return parsed;
+      }
+    } catch {
+      /* fingerprint changed (browser update) or corrupt — unrecoverable */
+      localStorage.removeItem(`${LEGACY_ENC_PREFIX}stitchcode:history`);
     }
-    return null;
   }
-  
-  // Check if passphrase was previously set
-  const saltB64 = localStorage.getItem(PASSPHRASE_SALT_KEY);
-  if (saltB64) {
-    // User has set a passphrase before, but we can't retrieve it
-    // They need to provide it again
-    return null;
+  /* v0: plaintext list */
+  const plain = localStorage.getItem(LEGACY_PLAIN_HISTORY);
+  if (plain) {
+    try {
+      const parsed = JSON.parse(plain);
+      if (isHistoryArray(parsed)) {
+        localStorage.removeItem(LEGACY_PLAIN_HISTORY);
+        return parsed;
+      }
+    } catch {
+      localStorage.removeItem(LEGACY_PLAIN_HISTORY);
+    }
   }
-  
-  // No passphrase set, fall back to device fingerprint
   return null;
 }
 
-/**
- * Checks if a user passphrase has been configured.
- */
-export function hasUserPassphrase(): boolean {
-  return !!(localStorage.getItem(PASSPHRASE_SALT_KEY) && localStorage.getItem(PASSPHRASE_VERIFIER_KEY));
-}
+/* --------------------------- public API --------------------------- */
 
-/**
- * Removes user passphrase configuration.
- * Note: This will make previously encrypted data inaccessible!
- */
-export function removeUserPassphrase(): void {
-  localStorage.removeItem(PASSPHRASE_SALT_KEY);
-  localStorage.removeItem(PASSPHRASE_VERIFIER_KEY);
-}
-
-/**
- * Securely stores sensitive data in localStorage with encryption.
- * Automatically handles serialization.
- * 
- * @param key - Storage key
- * @param value - Value to store (will be JSON serialized)
- * @param appKey - Optional encryption key/passphrase. If not provided:
- *   - Uses user passphrase if one is configured
- *   - Falls back to device fingerprint key
- */
-export async function secureStorageSet(key: string, value: unknown, appKey?: string): Promise<void> {
-  const json = JSON.stringify(value);
-  // Use provided key, or check for user passphrase, or fall back to device fingerprint
-  const password = appKey ?? (await getUserPassphraseKey()) ?? await getAppKey();
-  const encrypted = await encrypt(json, password);
-  localStorage.setItem(`__enc:${key}`, encrypted);
-}
-
-/**
- * Retrieves and decrypts data from secure storage.
- * Returns undefined if decryption fails or key doesn't exist.
- * 
- * @param key - Storage key
- * @param appKey - Optional encryption key/passphrase. If not provided:
- *   - Uses user passphrase if one is configured
- *   - Falls back to device fingerprint key
- */
-export async function secureStorageGet<T>(key: string, appKey?: string): Promise<T | undefined> {
-  const encrypted = localStorage.getItem(`__enc:${key}`);
-  if (!encrypted) return undefined;
-
+/** Open (or create) the vault. Call once at app boot. */
+export async function openVault(): Promise<VaultStatus> {
+  if (opened) return vaultState;
+  opened = true;
   try {
-    // Use provided key, or check for user passphrase, or fall back to device fingerprint
-    const password = appKey ?? (await getUserPassphraseKey()) ?? await getAppKey();
-    const json = await decrypt(encrypted, password);
-    return JSON.parse(json) as T;
+    const meta = await idbGet<MetaRecord>(META_KEY);
+    if (!meta || meta.v !== 2 || !meta.wrap) {
+      const legacy = await migrateLegacy();
+      await createDeviceVault();
+      if (legacy) await idbPut("history", await sealValue(JSON.stringify(legacy)));
+      return vaultState;
+    }
+    wrapMode = meta.wrap.mode;
+    if (meta.wrap.mode === "device") {
+      try {
+        const wrapKey = await aesKey(getDeviceWrapKey());
+        await cacheDek(await unseal(wrapKey, meta.wrap.wrappedDek));
+        vaultState = "ready";
+      } catch {
+        /* device key lost (storage cleared partially) — fresh vault */
+        await createDeviceVault();
+      }
+      return vaultState;
+    }
+    /* passphrase tier */
+    vaultState = sessionDek ? "ready" : "locked";
+    return vaultState;
   } catch {
-    return undefined;
+    vaultState = "ready"; /* degrade: vault unusable but app functional */
+    sessionDek = null;
+    sessionDekRaw = null;
+    return vaultState;
+  }
+}
+
+async function sealValue(json: string): Promise<BlobRecord> {
+  if (!sessionDek) throw new Error("Vault locked");
+  const ct = await seal(sessionDek, new TextEncoder().encode(json));
+  return { v: 2, ct };
+}
+
+/** Read a value from the vault. `null` when absent. Throws when locked. */
+export async function vaultGet<T>(key: string): Promise<T | null> {
+  if (!sessionDek) throw new Error("Vault locked");
+  const rec = await idbGet<BlobRecord>(key);
+  if (!rec || rec.v !== 2) return null;
+  try {
+    const plain = await unseal(sessionDek, rec.ct);
+    return JSON.parse(new TextDecoder().decode(plain)) as T;
+  } catch {
+    throw new Error(`Vault record '${key}' failed authentication (corrupt)`);
+  }
+}
+
+/** Write a value to the vault. Throws when locked or over quota. */
+export async function vaultSet<T>(key: string, value: T): Promise<void> {
+  const rec = await sealValue(JSON.stringify(value));
+  await idbPut(key, rec);
+}
+
+/**
+ * Unlock a passphrase-protected vault. Runs the 600k-iteration KDF once;
+ * the DEK stays cached for the session.
+ */
+export async function unlockVault(pass: string): Promise<boolean> {
+  const meta = await idbGet<MetaRecord>(META_KEY);
+  if (!meta || meta.wrap.mode !== "passphrase" || !meta.wrap.salt) return false;
+  try {
+    const kek = await passphraseToKek(pass, b64ToBytes(meta.wrap.salt));
+    await cacheDek(await unseal(kek, meta.wrap.wrappedDek));
+    vaultState = "ready";
+    return true;
+  } catch {
+    return false;
   }
 }
 
 /**
- * Removes encrypted data from secure storage.
+ * Protect the vault with a passphrase (must currently be unlocked).
+ * Re-wraps the SAME DEK, so existing data stays readable.
  */
-export function secureStorageRemove(key: string): void {
-  localStorage.removeItem(`__enc:${key}`);
+export async function setPassphrase(pass: string): Promise<boolean> {
+  if (pass.length < PASSPHRASE_MIN) return false;
+  if (!sessionDek || !sessionDekRaw) throw new Error("Vault locked");
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const kek = await passphraseToKek(pass, salt);
+  const wrappedDek = await seal(kek, sessionDekRaw);
+  const verifier = await seal(kek, new TextEncoder().encode("stitchcode-verifier"));
+  const meta: MetaRecord = {
+    v: 2,
+    wrap: {
+      mode: "passphrase",
+      salt: bytesToB64(salt),
+      iterations: PBKDF2_ITERATIONS,
+      wrappedDek,
+      verifier,
+    },
+  };
+  await idbPut(META_KEY, meta);
+  localStorage.removeItem(DEVICE_WRAP_KEY_LS);
+  wrapMode = "passphrase";
+  return true;
+}
+
+/** Drop passphrase protection: re-wrap the DEK with a fresh device key. */
+export async function removePassphrase(): Promise<void> {
+  if (!sessionDekRaw) throw new Error("Vault locked");
+  localStorage.removeItem(DEVICE_WRAP_KEY_LS);
+  const wrapKey = await aesKey(getDeviceWrapKey());
+  const wrappedDek = await seal(wrapKey, sessionDekRaw);
+  await idbPut(META_KEY, { v: 2, wrap: { mode: "device", wrappedDek } });
+  wrapMode = "device";
+}
+
+/* test-only: reset SESSION state (a page reload keeps localStorage — tests
+ * clear storage explicitly when they want the device tier gone) */
+export function __resetVaultForTests(): void {
+  sessionDek = null;
+  sessionDekRaw = null;
+  vaultState = "missing";
+  wrapMode = "device";
+  opened = false;
 }

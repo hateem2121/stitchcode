@@ -1,5 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 import { webcrypto } from "node:crypto";
+import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
+
+// jsdom has no IndexedDB implementation — tests use fake-indexeddb.
+if (typeof window !== "undefined" && !("indexedDB" in window)) {
+  const factory = new IDBFactory();
+  Object.defineProperty(window, "indexedDB", { value: factory, configurable: true });
+  Object.defineProperty(globalThis, "indexedDB", { value: factory, configurable: true });
+  Object.defineProperty(globalThis, "IDBKeyRange", { value: IDBKeyRange, configurable: true });
+}
 
 // Node ≥22 exposes an experimental `localStorage` global that is present but
 // inert without --localstorage-file, shadowing jsdom's implementation once

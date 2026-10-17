@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, MotionConfig, animate } from "motion/react";
-import { QrCode, WifiOff, History, Trash2, RotateCcw, ArrowDown, ScanLine, Shuffle } from "lucide-react";
+import { QrCode, WifiOff, History, Trash2, RotateCcw, ArrowDown, ScanLine, Shuffle, Lock } from "lucide-react";
 import DOMPurify from "dompurify";
 DOMPurify.sanitize(""); // Initialize DOMPurify with window context
 import {
@@ -21,7 +21,16 @@ import { DEFAULT_STYLE, toRenderOptions, type StyleState } from "./lib/style";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { useLogoGrid } from "./lib/useLogoGrid";
 import { Anatomy, Checklist, FAQ } from "./components/Sections";
-import { secureStorageSet, secureStorageGet } from "./lib/crypto";
+import {
+  openVault,
+  unlockVault,
+  setPassphrase,
+  removePassphrase,
+  isPassphraseProtected,
+  vaultGet,
+  vaultSet,
+  PASSPHRASE_MIN,
+} from "./lib/crypto";
 
 /* ------------------------------------------------------------------ */
 /* History persistence                                                 */
@@ -34,7 +43,7 @@ interface HistoryItem {
   style: StyleState;
   payload: string;
 }
-const HISTORY_KEY = "stitchcode:history";
+const HISTORY_VAULT_KEY = "history";
 /** Kept small on purpose: history stores full style (including the logo data
  *  URL) and encrypted blobs must fit the localStorage quota. */
 const HISTORY_MAX = 8;
@@ -111,37 +120,14 @@ function HistoryThumb({ item }: { item: HistoryItem }) {
 }
 
 /**
- * Loads history from encrypted localStorage.
- * Falls back to legacy unencrypted format for migration.
+ * Loads history from the encrypted vault (IndexedDB). Legacy localStorage
+ * formats are adopted by openVault()'s migration pass before this runs.
  */
 async function loadHistory(): Promise<HistoryItem[]> {
   try {
-    // Try encrypted storage first
-    const encrypted = await secureStorageGet<HistoryItem[]>(HISTORY_KEY);
-    if (encrypted && Array.isArray(encrypted)) {
-      return encrypted.filter(
-        (x): x is HistoryItem =>
-          !!x &&
-          typeof x === "object" &&
-          typeof x.id === "string" &&
-          typeof x.ts === "number" &&
-          typeof x.type === "string" &&
-          typeof x.payload === "string" &&
-          !!x.style &&
-          typeof x.style === "object" &&
-          !!x.forms &&
-          typeof x.forms === "object",
-      );
-    }
-    
-    // Fallback: migrate from legacy unencrypted format
-    const raw = localStorage.getItem(HISTORY_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    
-    // Migrate to encrypted storage
-    const valid = parsed.filter(
+    const stored = await vaultGet<HistoryItem[]>(HISTORY_VAULT_KEY);
+    if (!Array.isArray(stored)) return [];
+    return stored.filter(
       (x): x is HistoryItem =>
         !!x &&
         typeof x === "object" &&
@@ -154,13 +140,6 @@ async function loadHistory(): Promise<HistoryItem[]> {
         !!x.forms &&
         typeof x.forms === "object",
     );
-    
-    // Encrypt and store, then remove legacy
-    if (valid.length > 0) {
-      await secureStorageSet(HISTORY_KEY, valid);
-      localStorage.removeItem(HISTORY_KEY);
-    }
-    return valid;
   } catch {
     return [];
   }
@@ -571,23 +550,71 @@ function Workbench() {
   /* autosave waits for the initial load so a fresh first save can never
      clobber stored builds with a single-entry list */
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [vaultLocked, setVaultLocked] = useState(false);
+  const [hasPassphrase, setHasPassphrase] = useState(false);
 
-  // Load history on mount (cancellable — the promise can resolve after
-  // StrictMode's unmount/remount cycle)
+  // Open the encrypted vault, then load history (cancellable — the promise
+  // can resolve after StrictMode's unmount/remount cycle). While a
+  // passphrase-protected vault is locked, loading and autosave both wait.
   useEffect(() => {
     let cancelled = false;
-    loadHistory()
-      .then((items) => {
-        if (!cancelled) setHistory(items);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setHistoryLoaded(true);
-      });
+    (async () => {
+      const status = await openVault();
+      if (cancelled) return;
+      setHasPassphrase(isPassphraseProtected());
+      if (status === "locked") {
+        setVaultLocked(true);
+        return;
+      }
+      const items = await loadHistory();
+      if (cancelled) return;
+      setHistory(items);
+      setHistoryLoaded(true);
+    })().catch(() => {
+      if (!cancelled) setHistoryLoaded(true);
+    });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const onUnlock = async (pass: string) => {
+    const ok = await unlockVault(pass);
+    if (!ok) {
+      toast("error", "Wrong passphrase — try again");
+      return;
+    }
+    setVaultLocked(false);
+    const items = await loadHistory();
+    setHistory(items);
+    setHistoryLoaded(true);
+    toast("success", "History unlocked");
+  };
+
+  const [unlockInput, setUnlockInput] = useState("");
+  const [passInput, setPassInput] = useState("");
+
+  const onSetPassphrase = async () => {
+    const pass = passInput.trim();
+    if (pass.length < PASSPHRASE_MIN) {
+      toast("error", `Passphrase needs at least ${PASSPHRASE_MIN} characters`);
+      return;
+    }
+    const ok = await setPassphrase(pass);
+    if (ok) {
+      setHasPassphrase(true);
+      setPassInput("");
+      toast("success", "History protected — remember that passphrase, it can't be recovered");
+    } else {
+      toast("error", "Couldn't set the passphrase — try again");
+    }
+  };
+
+  const onRemovePassphrase = async () => {
+    await removePassphrase();
+    setHasPassphrase(false);
+    toast("info", "Passphrase removed — history is back to device-only obfuscation");
+  };
   
   const saveTimer = useRef<number | null>(null);
 
@@ -666,11 +693,11 @@ function Workbench() {
     if (persistTimer.current) window.clearTimeout(persistTimer.current);
     persistTimer.current = window.setTimeout(async () => {
       try {
-        await secureStorageSet(HISTORY_KEY, history);
+        await vaultSet(HISTORY_VAULT_KEY, history);
       } catch {
         /* quota exceeded — keep the newest half and retry once */
         try {
-          await secureStorageSet(HISTORY_KEY, history.slice(0, Math.ceil(HISTORY_MAX / 2)));
+          await vaultSet("history", history.slice(0, Math.ceil(HISTORY_MAX / 2)));
         } catch {
           toast("error", "Couldn't save history — browser storage is full");
         }
@@ -788,8 +815,49 @@ function Workbench() {
         </div>
       </div>
 
+      {/* vault locked — unlock prompt replaces history */}
+      {vaultLocked && (
+        <Reveal className="mt-10">
+          <div className="rounded-[12px] border-[1.5px] border-ink bg-surface p-5 shadow-brutal-sm">
+            <h3 className="flex items-center gap-2 font-display text-[17px] font-black tracking-tight text-ink">
+              <Lock size={16} className="text-accent2" /> Your saved builds are locked
+            </h3>
+            <p className="mt-1.5 max-w-xl text-[12px] font-medium leading-relaxed text-ink-muted">
+              They're encrypted with your passphrase — enter it to see and restore them. You can
+              also keep making codes without unlocking.
+            </p>
+            <form
+              className="mt-3.5 flex flex-wrap items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (unlockInput.trim()) {
+                  onUnlock(unlockInput.trim());
+                  setUnlockInput("");
+                }
+              }}
+            >
+              <input
+                type="password"
+                value={unlockInput}
+                onChange={(e) => setUnlockInput(e.target.value)}
+                placeholder="Your passphrase"
+                aria-label="History passphrase"
+                autoComplete="current-password"
+                className="h-9 min-w-[220px] flex-1 rounded-full border-[1.5px] border-ink bg-surface2 px-4 text-[13px] font-medium text-ink outline-none focus:shadow-brutal-sm"
+              />
+              <button
+                type="submit"
+                className="flex h-9 items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-ink px-4 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-bg shadow-brutal-sm transition-transform hover:scale-[1.03] active:scale-95"
+              >
+                <Lock size={12} /> Unlock
+              </button>
+            </form>
+          </div>
+        </Reveal>
+      )}
+
       {/* history */}
-      {history.length > 0 && (
+      {!vaultLocked && history.length > 0 && (
         <Reveal className="mt-10">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="flex items-center gap-2 font-display text-[17px] font-black tracking-tight text-ink">
@@ -840,7 +908,7 @@ function Workbench() {
           </div>
         </Reveal>
       )}
-      {history.length === 0 && (
+      {!vaultLocked && history.length === 0 && (
         <Reveal className="mt-10">
           <div className="flex items-center gap-3 rounded-[12px] border-[1.5px] border-dashed border-line bg-surface2/40 px-5 py-4">
             <History size={16} className="shrink-0 text-accent2" />
@@ -849,6 +917,69 @@ function Workbench() {
             </p>
           </div>
         </Reveal>
+      )}
+
+      {/* history privacy controls — honest about what protection means */}
+      {historyLoaded && !vaultLocked && (
+        <details className="mt-4 rounded-[12px] border-[1.5px] border-line bg-surface2/40 px-5 py-3.5">
+          <summary className="flex cursor-pointer select-none items-center gap-2 font-mono text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-muted">
+            <Lock size={12} className="shrink-0" />
+            {hasPassphrase
+              ? "History is passphrase-protected on this device"
+              : "Protect your history with a passphrase"}
+          </summary>
+          <div className="mt-3 max-w-2xl">
+            <p className="text-[12px] font-medium leading-relaxed text-ink-muted">
+              {hasPassphrase ? (
+                <>
+                  Saved builds are encrypted with your passphrase — without it they can't be read,
+                  on this device or any other. It cannot be recovered or reset; if you forget it,
+                  the locked history is gone for good.
+                </>
+              ) : (
+                <>
+                  Right now saved builds are only <em>obfuscated</em> on this device — anyone with
+                  access to this browser profile could read them. A passphrase encrypts them for
+                  real (AES-256-GCM, PBKDF2 600k). It cannot be recovered if forgotten.
+                </>
+              )}
+            </p>
+            {hasPassphrase ? (
+              <button
+                type="button"
+                onClick={onRemovePassphrase}
+                className="mt-3 flex h-8 items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-surface px-3.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-ink shadow-brutal-sm transition-transform hover:scale-[1.03] active:scale-95"
+              >
+                Remove passphrase
+              </button>
+            ) : (
+              <form
+                className="mt-3 flex flex-wrap items-center gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  onSetPassphrase();
+                }}
+              >
+                <input
+                  type="password"
+                  value={passInput}
+                  onChange={(e) => setPassInput(e.target.value)}
+                  placeholder={`New passphrase (${PASSPHRASE_MIN}+ characters)`}
+                  aria-label="New history passphrase"
+                  autoComplete="new-password"
+                  minLength={PASSPHRASE_MIN}
+                  className="h-9 min-w-[240px] flex-1 rounded-full border-[1.5px] border-ink bg-surface px-4 text-[13px] font-medium text-ink outline-none focus:shadow-brutal-sm"
+                />
+                <button
+                  type="submit"
+                  className="flex h-9 items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-ink px-4 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-bg shadow-brutal-sm transition-transform hover:scale-[1.03] active:scale-95"
+                >
+                  <Lock size={12} /> Protect
+                </button>
+              </form>
+            )}
+          </div>
+        </details>
       )}
     </section>
   );
