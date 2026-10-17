@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Plus, ShieldCheck, Ruler, Contrast, Aperture, Printer, BookOpen, Microscope } from "lucide-react";
 import { Reveal, Tele, Decode } from "./ui";
+import DOMPurify from "dompurify";
 import { createMatrix, renderSVG } from "../lib/qr";
 
 /* ------------------------------------------------------------------ */
@@ -216,7 +217,7 @@ export function Anatomy() {
       },
       560,
     );
-    return { svg: svgStr, version: m.version, size: m.size };
+    return { svg: DOMPurify.sanitize(svgStr, { USE_PROFILES: { svg: true, svgFilters: true } }), version: m.version, size: m.size };
   }, []);
 
   /* every coordinate derives from the real module count, so it's exact */

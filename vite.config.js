@@ -1,6 +1,32 @@
+import { readFileSync } from "node:fs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+
+/**
+ * Emits sw.js with its VERSION stamped from package.json at build time —
+ * the manual bump in the worker source could (and did) drift behind
+ * releases, leaving PWA users on stale caches.
+ */
+function serviceWorkerVersionPlugin() {
+  let version = "0.0.0";
+  let template = "";
+  return {
+    name: "stitchcode-sw-version",
+    apply: "build",
+    buildStart() {
+      version = JSON.parse(readFileSync("./package.json", "utf8")).version;
+      template = readFileSync("./scripts/sw.template.js", "utf8");
+    },
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "sw.js",
+        source: template.replace("__SW_VERSION__", `v${version}`),
+      });
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
@@ -10,6 +36,7 @@ export default defineConfig({
       babel: { plugins: [["babel-plugin-react-compiler", {}]] },
     }),
     tailwindcss(),
+    serviceWorkerVersionPlugin(),
   ],
   base: "./",
   server: {

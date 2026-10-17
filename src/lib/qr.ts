@@ -386,15 +386,19 @@ export function isFunctional(
 
 const f = (n: number) => (Math.round(n * 1000) / 1000).toString();
 
+/** Escape dynamic string content for SVG attributes (fg/bg colours etc.). */
+const esc = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
 function finderSVG(ox: number, oy: number, o: QRRenderOptions): string {
   const r = o.cornerStyle === "rounded";
   const ro = r ? 2.3 : 0;
   const ri = r ? 1.5 : 0;
   const rc = r ? 1.05 : 0;
   return (
-    `<rect x="${f(ox)}" y="${f(oy)}" width="7" height="7" rx="${ro}" fill="${o.fg}"/>` +
-    `<rect x="${f(ox + 1)}" y="${f(oy + 1)}" width="5" height="5" rx="${ri}" fill="${o.bg}"/>` +
-    `<rect x="${f(ox + 2)}" y="${f(oy + 2)}" width="3" height="3" rx="${rc}" fill="${o.fg}"/>`
+    `<rect x="${f(ox)}" y="${f(oy)}" width="7" height="7" rx="${ro}" fill="${esc(o.fg)}"/>` +
+    `<rect x="${f(ox + 1)}" y="${f(oy + 1)}" width="5" height="5" rx="${ri}" fill="${esc(o.bg)}"/>` +
+    `<rect x="${f(ox + 2)}" y="${f(oy + 2)}" width="3" height="3" rx="${rc}" fill="${esc(o.fg)}"/>`
   );
 }
 
@@ -443,9 +447,9 @@ function inlayLogoSVG(
       const y = ox + j;
       if (isFunctional(x, y, m.size, centers)) continue;
       const dark = o.logoGrid[j * region + i] === 1;
-      out += `<rect x="${mg + x}" y="${mg + y}" width="1" height="1" fill="${
-        dark ? o.fg : o.bg
-      }"/>`;
+      out += `<rect x="${mg + x}" y="${mg + y}" width="1" height="1" fill="${esc(
+        dark ? o.fg : o.bg,
+      )}"/>`;
     }
   }
   return out;
@@ -475,7 +479,7 @@ function stitchLogoSVG(
       if (isFunctional(mx, my, m.size, centers)) continue;
       const dark = o.logoGrid[j * N + i] === 1;
       // Use f() for all coordinate calculations to ensure consistency
-      out += `<rect x="${f(mg + ox + i * u)}" y="${f(mg + ox + j * u)}" width="${w}" height="${w}" fill="${dark ? o.fg : o.bg}"/>`;
+      out += `<rect x="${f(mg + ox + i * u)}" y="${f(mg + ox + j * u)}" width="${w}" height="${w}" fill="${esc(dark ? o.fg : o.bg)}"/>`;
     }
   }
 
@@ -487,15 +491,15 @@ function stitchLogoSVG(
       const Y = mg + y;
       if (isFunctional(x, y, m.size, centers)) {
         /* alignment / timing stay solid for scan safety */
-        out += `<rect x="${X}" y="${Y}" width="1" height="1" fill="${
-          m.get(x, y) ? o.fg : o.bg
-        }"/>`;
+        out += `<rect x="${X}" y="${Y}" width="1" height="1" fill="${esc(
+          m.get(x, y) ? o.fg : o.bg,
+        )}"/>`;
       } else {
         /* data modules as centred dots in their own polarity — dark ink dots
            and light field dots — so the code reads as a dense lattice and the
            picture only shows in the gaps */
         const dark = m.get(x, y);
-        const fill = dark ? o.fg : o.bg;
+        const fill = esc(dark ? o.fg : o.bg);
         if (!dark && o.bg === "transparent") continue; /* nothing to draw */
         if (o.dotStyle === "dots") {
           out += `<circle cx="${f(X + 0.5)}" cy="${f(Y + 0.5)}" r="0.27" fill="${fill}"/>`;
@@ -511,16 +515,15 @@ function stitchLogoSVG(
 }
 
 /**
- * Renders a QR matrix to an SVG string.
- * All output is generated from controlled internal data structures — no user HTML injection possible.
+ * Renders a QR matrix to an SVG string. Dynamic attribute content (fg/bg
+ * colours, which originate from user input) is escaped via esc(); the two
+ * innerHTML sinks (preview card, print sheet) additionally sanitize with
+ * DOMPurify as defense-in-depth.
  */
 export function renderSVG(m: QRMatrix, o: QRRenderOptions, px = 560): string {
   const centers = alignmentCenters(m.version);
   const total = m.size + o.margin * 2;
   const crisp = o.dotStyle === "square" ? ` shape-rendering="crispEdges"` : "";
-  
-  // Escape helper for any dynamic string content in SVG attributes
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   
   let body = `<rect width="${total}" height="${total}" fill="${esc(o.bg)}"/>`;
 

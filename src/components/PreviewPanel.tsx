@@ -607,11 +607,15 @@ function PrintSheet({
   onClose: () => void;
 }) {
   const cm = ((style.exportPx / 300) * 2.54).toFixed(1);
-  /* print exports always carry the 4-module quiet zone */
-  const svg = renderSVG(
-    matrix,
-    { ...toRenderOptions(style, logoGrid, logoN), margin: Math.max(4, style.margin) },
-    640,
+  /* print exports always carry the 4-module quiet zone; sanitized like
+     every other innerHTML sink (the esc() pass in the renderer is layer 1) */
+  const svg = DOMPurify.sanitize(
+    renderSVG(
+      matrix,
+      { ...toRenderOptions(style, logoGrid, logoN), margin: Math.max(4, style.margin) },
+      640,
+    ),
+    { USE_PROFILES: { svg: true, svgFilters: true } },
   );
   const date = new Date().toLocaleDateString(undefined, {
     day: "2-digit",
