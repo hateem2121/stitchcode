@@ -87,6 +87,7 @@
   "build": {
     "appId": "com.stitchcode.app",
     "productName": "StitchCode",
+    "executableName": "stitchcode",
     "directories": {
       "output": "dist-electron"
     },

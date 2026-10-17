@@ -12,7 +12,7 @@ const { flipFuses, FuseVersion, FuseV1Options } = require("@electron/fuses");
  * @param {{
  *   appOutDir: string,
  *   electronPlatformName: string,
- *   packager: { appInfo: { productFilename: string } },
+ *   packager: { appInfo: { productFilename: string, executableName?: string } },
  * }} context
  */
 exports.default = async function afterPack(context) {
@@ -25,11 +25,15 @@ exports.default = async function afterPack(context) {
     /* the executable name is sanitised per-platform (e.g. linux lowercases
        the product name) — resolve it from the output directory instead of
        guessing */
-    const wanted = platform === "win32" ? `${name.toLowerCase()}.exe` : name.toLowerCase();
+    const exec = context.packager.appInfo.executableName || "stitchcode";
+    const wanted = platform === "win32" ? `${exec}.exe` : exec;
     const hit = fs
       .readdirSync(context.appOutDir)
       .find((f) => f.toLowerCase() === wanted);
-    if (!hit) throw new Error(`afterPack: no executable found in ${context.appOutDir}`);
+    if (!hit)
+      throw new Error(
+        `afterPack: no '${wanted}' in ${context.appOutDir} — have: ${fs.readdirSync(context.appOutDir).join(", ")}`,
+      );
     target = path.join(context.appOutDir, hit);
   }
 
