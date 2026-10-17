@@ -90,8 +90,19 @@
     },
     "files": [
       "dist/**/*",
+      "!dist/sw.js",
+      "!dist/manifest.webmanifest",
       "electron/**/*"
     ],
+    "electronFuses": {
+      "runAsNode": false,
+      "cookieEncryption": true,
+      "nodeOptions": false,
+      "nodeCliInspect": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    },
+    "asar": true,
     "win": {
       "target": [
         "nsis"
@@ -104,7 +115,9 @@
         "zip"
       ],
       "icon": "public/icons/icon.png",
-      "category": "public.app-category.graphics-design"
+      "category": "public.app-category.graphics-design",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": true
     },
     "linux": {
       "target": [

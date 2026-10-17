@@ -1,56 +1,102 @@
+# ------------------------------------------------------------------
+# Release — multi-OS Electron builds, published as a DRAFT release for
+# human review. Tag v* to start it (make release does this from the
+# package.json version).
+#
+# Security posture:
+#   · verify job gates the packaging matrix (lint + typecheck + tests)
+#   · build jobs are read-only; only the publish job can write
+#   · publish runs in the `release` environment (add required reviewers in
+#     repo Settings → Environments → release)
+#   · artifacts carry SHA-256 checksums + build-provenance attestations
+#     (users can verify: gh attestation verify <file> -R RUN-APPAREL/stitchcode)
+# ------------------------------------------------------------------
 name: Build & Release Electron Apps
 
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
 
-permissions:
-  contents: write
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  verify:
+    name: Verify (lint, typecheck, tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck (app + electron main)
+        run: npm run typecheck
+
+      - name: Tests (with coverage)
+        run: npm run test:coverage
+
   build:
+    needs: verify
     runs-on: ${{ matrix.os }}
-    
+    timeout-minutes: 40
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          node-version: '22'
-          cache: 'npm'
-      
+          node-version-file: .nvmrc
+          cache: npm
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build for macOS
         if: matrix.os == 'macos-latest'
         run: |
           npm run build
           npx electron-builder --mac --publish never
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
       - name: Build for Windows
         if: matrix.os == 'windows-latest'
         run: |
           npm run build
           npx electron-builder --win --publish never
-      
+
       - name: Build for Linux
         if: matrix.os == 'ubuntu-latest'
         run: |
           npm run build
           npx electron-builder --linux --publish never
-      
+
       - name: Upload artifacts (macOS)
         if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -60,7 +106,7 @@ jobs:
             dist-electron/*.dmg
             dist-electron/*.zip
           if-no-files-found: error
-      
+
       - name: Upload artifacts (Windows)
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -68,7 +114,7 @@ jobs:
           name: windows-build
           path: dist-electron/*.exe
           if-no-files-found: error
-      
+
       - name: Upload artifacts (Linux)
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -78,37 +124,61 @@ jobs:
             dist-electron/*.AppImage
             dist-electron/*.deb
           if-no-files-found: error
-  
+
   release:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: startsWith(github.ref, 'refs/tags/v')
-    
+    # Create this environment (Settings → Environments → release) and add
+    # required reviewers so publishing needs a human approval.
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Download macOS artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: macos-build
           path: ./release-assets
-      
+
       - name: Download Windows artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: windows-build
           path: ./release-assets
-      
+
       - name: Download Linux artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: linux-build
           path: ./release-assets
-      
-      - name: Create Release
+
+      - name: Generate SHA-256 checksums
+        run: |
+          cd release-assets
+          shasum -a 256 * > checksums-sha256.txt
+          cat checksums-sha256.txt
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # v2
+        with:
+          subject-path: |
+            release-assets/*.dmg
+            release-assets/*.zip
+            release-assets/*.exe
+            release-assets/*.AppImage
+            release-assets/*.deb
+
+      - name: Create draft release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: ./release-assets/*
           generate_release_notes: true
-          draft: false
+          # DRAFT: a human reviews, then publishes from the GitHub UI
+          draft: true
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

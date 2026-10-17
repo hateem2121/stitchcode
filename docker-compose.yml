@@ -5,19 +5,24 @@
 #
 # Or skip building entirely with the published image:
 #
-#   docker run -p 8080:80 ghcr.io/run-apparel/stitchcode
+#   docker run -p 8080:8080 ghcr.io/run-apparel/stitchcode
 # ------------------------------------------------------------------
 services:
   stitchcode:
     build: .
-    image: stitchcode:local
+    # Prefer the published image; uncomment to force a local build
+    # image: stitchcode:local
+    image: ghcr.io/run-apparel/stitchcode:latest
     container_name: stitchcode
     ports:
-      - "8080:80"
+      - "8080:8080"
     restart: unless-stopped
+    user: "101:101"
     read_only: true
     tmpfs:
       - /var/cache/nginx
       - /var/run
+    cap_drop:
+      - ALL
     security_opt:
       - no-new-privileges:true
